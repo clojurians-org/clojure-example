@@ -52,3 +52,16 @@
 (defn -main
   ([] (run-local!))
   ([name] (submit-topology! name)))
+
+(comment
+  (import '[org.apache.storm Config utils.DRPCClient])
+  (def conf (doto (Config.)
+              (.setDebug false)
+              (.put "storm.thrift.transport" "org.apache.storm.security.auth.SimpleTransportPlugin")
+              (.put Config/STORM_NIMBUS_RETRY_TIMES 3)
+              (.put Config/STORM_NIMBUS_RETRY_INTERVAL 10)
+              (.put Config/STORM_NIMBUS_RETRY_INTERVAL_CEILING 20)
+              (.put Config/DRPC_MAX_BUFFER_SIZE 1048576)))
+  (defonce drpc (DRPCClient. conf "10.58.97.140" 3772))
+  (.execute drpc "words" "evil vessel ogdoad")
+  )
