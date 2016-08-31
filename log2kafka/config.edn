@@ -1,0 +1,4 @@
+{:file-pattern ["/data/larluo/var/" "BookBase.TLogExplanationServer_qd_readtime_" :year :month :day :hour ".log"]
+ :period (clj-time.core/hours 1)
+ :start-ts "2016-06-01T00:00:00"
+  :zk-servers ["10.205.3.23" "10.205.3.24" "10.205.3.25"]}
