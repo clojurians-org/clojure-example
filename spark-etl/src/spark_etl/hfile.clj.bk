@@ -1,0 +1,70 @@
+(ns etl-helper.hbase
+  (:require [flambo.conf :as conf]
+            [flambo.api :as f]
+            [flambo.tuple :as ft]
+            [com.rpl.specter :refer [ALL FIRST LAST submap]]
+            [com.rpl.specter.macros :refer [select]]
+            [incanter.core :refer [sel to-matrix to-list]]
+            [incanter.io :refer [read-dataset]]
+            [clojure.data.csv :as csv :refer [read-csv write-csv]]
+            [clojure.java.io :as io])
+  (:import [java.net URI]
+           [org.apache.hadoop.fs FileSystem Path]
+           [org.apache.hadoop.conf Configuration]
+           [org.apache.hadoop.hbase KeyValue TableName HBaseConfiguration]
+           [org.apache.hadoop.hbase.client ConnectionFactory]
+           [org.apache.hadoop.hbase.mapreduce HFileOutputFormat2 LoadIncrementalHFiles])
+  (:gen-class))
+
+(let [hbase-config  (->> (doto (new Configuration)
+                           (.set "hbase.rootdir" "hdfs://192.168.1.3:9000/hbase")
+                           (.set "hbase.zookeeper.quorum" "192.168.1.3,192.168.1.4,192.168.1.5") ) 
+                                  HBaseConfiguration/create)
+      conn (ConnectionFactory/createConnection hbase-config)
+      locator (.getRegionLocator conn (TableName/valueOf "test1") )
+      ;start-keys (-> conn (.getRegionLocator (TableName/valueOf "test1")) .getStartKeys)
+      table (.getTable conn (TableName/valueOf "test"))      ]
+  ((juxt (memfn getHostname) (memfn getPort)) (.getRegionLocation locator (.getBytes "1") )) 
+  )
+
+
+
+(def data [["KEY-1" "2013-01-01" "AAA" "NAME-A"]
+           ["KEY-2" "2014-01-01" "BBB" "NAME-B"]])
+
+(def row ["KEY-1" "2013-01-01" "AAA" "NAME-A"])
+
+(f/defsparkfn to-hbase [row cf-cols]
+  (let [{:keys [key cfs]} cf-cols
+        key-val (get row key)]
+    (.iterator (for [[cf-name cf-val] cfs
+                     [f-name f-val] cf-val]
+                 (map (comp #_(memfn getBytes) name) [key-val cf-name f-name (get row f-val) ]) )) ) )
+
+(def cf-cols {:key 0 :cfs {:cf1 {:date 1 :code 2} :cf2 {:name 3}}})
+(-> (f/parallelize sc data)
+    (f/flat-map (f/fn [line] (to-hbase line cf-cols)))
+    f/collect)
+
+(import '[org.apache.hadoop.hbase.regionserver BloomType])
+(BloomType/valueOf Boomype/NONE)
+
+(import '[org.apache.hadoop.hbase.io.hfile HFile CacheConfig])
+(import '[org.apache.hadoop.conf Configuration])
+(import '[org.apache.hadoop.hbase HConstants])
+(import '[org.apache.hadoop.hbase.fs HFileSystem])
+(import '[org.apache.hadoop.fs Path FileSystem])
+(import '[org.apache.spark SerializableWritable])
+
+(defonce sc (-> (conf/spark-conf) (conf/master "local[*]") (conf/app-name (str "hbase-data_sample")) f/spark-context))
+(def conf (new HBaseConfiguration
+               (doto (new Configuration)
+                 (.set "hbase.rootdir" "hdfs://192.168.1.3:9000/hbase")
+                 (.set "hbase.zookeeper.quorum" "192.168.1.3,192.168.1.4,192.168.1.5") )) )
+(def cache-conf (new CacheConfig (doto (new Configuration conf) (.setFloat HConstants/HFILE_BLOCK_CACHE_SIZE_KEY 0.0))) )
+
+(.broadcast sc (new ))
+(def fs (.get FileSystem ))
+(def writer (-> (HFile/getWriterFactory conf cache-conf)
+                (.withPath (new HFileSystem ))
+                ) ) 
