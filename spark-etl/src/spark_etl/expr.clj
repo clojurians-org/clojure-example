@@ -25,7 +25,7 @@
       (mapv #(format-local-time % :date) $)
       (conj $ (second date-range)))))
 
-(defn expr-fn [expr]
+(defn infix-expr [expr]
   (let [params (as-> expr $
                  (re-seq #":\b(\w+)\b" $) (mapv second $)
                  (concat ["["] $ ["]"])
@@ -33,36 +33,34 @@
     (binding [*ns* (find-ns 'spark-etl.expr)]
       (load-string (str "(fn [{:keys " params "}] (infix " (clojure.string/replace expr #":" "") "))")))))
 
-(defn resolve-expr
-  "resolve single expression recursively"
-  [expr-name result-data-map expr-map]
+(defn resolve-expr-map
+  "resolve expression map"
+  [expr-map-str]
+  (into {}
+    (for [[expr-name expr-val] (read-string expr-map-str)]
+      [expr-name [(infix-expr expr-val) (->>  expr-val (re-seq #":\b(\w+)\b") (mapv (comp keyword second)))]] )))
+
+(defn inject-expr
+  "inject single expression recursively to data map"
+  [expr-name expr-map result-data-map]
   (when-not (contains? @result-data-map expr-name)
-    (doseq [ sub-expr (->> expr-name expr-map (re-seq #":\b(\w+)\b") (mapv (comp keyword second)))]
-      (resolve-expr sub-expr result-data-map expr-map))
-    (swap! result-data-map assoc expr-name ((expr-fn (->> expr-name expr-map)) @result-data-map))))
-
-(defn expand-expr-map
-  "calculate out-cols according data-map and expr-map"
-  [out-cols data-map expr-map]
-  (let [result-data-map (atom data-map)]
-    (doseq [each-expr-name (keys expr-map)]
-      (when-not (contains? @result-data-map each-expr-name)
-        (resolve-expr each-expr-name result-data-map expr-map)))
-    (map @result-data-map out-cols)))
-
+    (let [[expr-fn sub-exprs] (expr-name expr-map)]
+      (doseq [sub-expr sub-exprs]
+        (inject-expr sub-expr expr-map result-data-map))
+      (swap! result-data-map assoc expr-name (expr-fn @result-data-map))) ))
+         
 (defn do-expr-map
   [record tab-cols-str expr-map]
-  (let [data-map (->> record
-                      (map
-                       #(if (symbol? %1) [(keyword %1) (read-string %2)] [((comp keyword eval) %1) %2])
-                       (-> tab-cols-str (clojure.string/replace #"'?\b_" "") read-string) )
+  (let [data-map (->> (map #(if (symbol? %1) [(keyword %1) (read-string %2)] [((comp keyword second) %1) %2])
+                           (-> tab-cols-str (clojure.string/replace #"'?\b_" "") read-string)
+                           record)
                       (into {}))
-        out-cols (concat (as-> tab-cols-str $
-                           (clojure.string/replace $ #"'?\b_\w+\b" "")
-                           (read-string $)
-                           (map #(-> (if-not (symbol? %) (eval %) %) keyword) $))
-                         (-> expr-map keys))]
-    [(first record) (expand-expr-map out-cols data-map expr-map) ] ))
+        out-cols (concat (->>  (clojure.string/replace tab-cols-str #"('|\b_\w+\b)" "")
+                               read-string (map keyword))
+                         (keys expr-map))
+        result-data-map (atom data-map)]
+    (doseq [[expr-name _] expr-map] (expand-expr expr-name expr-map result-data-map))
+    [(first record) (map @result-data-map out-cols)] ))
 
 (defn write-hdfs [key-record-itr tgt-path]
   (let [prt-id (some-> (TaskContext/get) .partitionId)
@@ -83,7 +81,7 @@
 (defn -main [tab-names-str tab-cols-str expr-map-str]
   (infix.core/suppress! 'e)
   (let [hive-dw-dir "hdfs://192.168.1.3:9000/user/hive/warehouse"
-        expr-map (read-string expr-map-str)
+        expr-map (resolve-expr-map expr-map-str)
         ;partition-part (str "p_date={" (->> date-range-str parse-date-seq (clojure.string/join ",")) "}")
         [src-tab-name tgt-tab-name] (read-string tab-names-str) 
         [src-schema src-tab] (clojure.string/split (name src-tab-name) #"\." 2)
@@ -99,7 +97,7 @@
         (f/flat-map (f/fn [key-text] (let [[key text] (f/untuple key-text)]
                                        (as-> text $
                                          (clojure.string/split $ #"\n")
-                                         (map #(-> % (clojure.string/split #"\001") #_(do-expr-map tab-cols-str expr-map)) $)
+                                         (map #(-> % (clojure.string/split #"\001") (do-expr-map tab-cols-str expr-map)) $)
                                          (.iterator $) ))))
         f/count
         #_(f/foreach-partition (f/fn [key-line-itr] (write-hdfs key-line-itr (clojure.string/join "/" [hive-dw-dir tgt-path-part])))) )))
@@ -114,5 +112,3 @@
          "{:is_copon_discount \":copon_discount_amount == 0\"
            :is_system_discount \":system_discount_amount == 0.0\"
            :is_discount \":is_copon_discount || :is_system_discount\"}"))
-
-(time (dotimes [_ 1000000] (infix 1 + 2)))
