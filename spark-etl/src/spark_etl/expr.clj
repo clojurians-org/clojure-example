@@ -59,7 +59,7 @@
                                read-string (map keyword))
                          (keys expr-map))
         result-data-map (atom data-map)]
-    (doseq [[expr-name _] expr-map] (expand-expr expr-name expr-map result-data-map))
+    (doseq [[expr-name _] expr-map] (inject-expr expr-name expr-map result-data-map))
     [(first record) (map @result-data-map out-cols)] ))
 
 (defn write-hdfs [key-record-itr tgt-path]
@@ -74,7 +74,6 @@
                  (-> (FileSystem/get (new URI file-path) (new Configuration))
                      (.create (new Path file-path)))))
         (let [out (get @writers (keyword file-path))]
-          (println prt-id "-counter:" (swap! counter inc))
           (.write out (.getBytes (str (clojure.string/join "\001" record) "\n") "UTF-8")))))
     (doseq [[_ writer] @writers] (.close writer))))
 
@@ -99,12 +98,11 @@
                                          (clojure.string/split $ #"\n")
                                          (map #(-> % (clojure.string/split #"\001") (do-expr-map tab-cols-str expr-map)) $)
                                          (.iterator $) ))))
-        f/count
-        #_(f/foreach-partition (f/fn [key-line-itr] (write-hdfs key-line-itr (clojure.string/join "/" [hive-dw-dir tgt-path-part])))) )))
+        (f/foreach-partition (f/fn [key-line-itr] (write-hdfs key-line-itr (clojure.string/join "/" [hive-dw-dir tgt-path-part])))) )))
 
 (comment
   (-main "[:ods.d_bolome_orders :4ml.d_bolome_orders]"
-         "['_prt_path
+         "['_prt_patho
            'pay_date '_user_id 'order_id 'barcode
             'quantity 'price 'warehouse_id 'show_id 
             'preview_show_id 'replay_show_id 'coupon_id 'event_id 
