@@ -5,6 +5,7 @@
             [clojure.data.csv :as csv :refer [read-csv write-csv]]
             [clojure.java.io :as io]
             [infix.macros :refer [infix from-string]]
+            [taoensso.timbre :refer [info debug warn set-level!]]
             [clj-time.local :refer [format-local-time to-local-date-time]]
             [clj-time.periodic :refer [periodic-seq]])
   (:import [java.net URI]
@@ -48,11 +49,11 @@
       (doseq [sub-expr sub-exprs]
         (inject-expr sub-expr expr-map result-data-map))
       (swap! result-data-map assoc expr-name (expr-fn @result-data-map))) ))
-         
-(defn do-expr-map
+
+(f/defsparkfn do-expr-map
   [record tab-cols-str expr-map]
   (let [data-map (->> (map #(if (symbol? %1) [(keyword %1) (read-string %2)] [((comp keyword second) %1) %2])
-                           (-> tab-cols-str (clojure.string/replace #"'?\b_" "") read-string)
+                           (-> tab-cols-str (clojure.string/replace #"\b_" "") read-string)
                            record)
                       (into {}))
         out-cols (concat (->>  (clojure.string/replace tab-cols-str #"('|\b_\w+\b)" "")
@@ -62,7 +63,7 @@
     (doseq [[expr-name _] expr-map] (inject-expr expr-name expr-map result-data-map))
     [(first record) (map @result-data-map out-cols)] ))
 
-(defn write-hdfs [key-record-itr tgt-path]
+(f/defsparkfn write-hdfs [key-record-itr tgt-path]
   (let [prt-id (some-> (TaskContext/get) .partitionId)
         prt-filename (str "data.csv." prt-id)
         counter (atom 0)
@@ -78,35 +79,46 @@
     (doseq [[_ writer] @writers] (.close writer))))
 
 (defn -main [tab-names-str tab-cols-str expr-map-str]
+  (info "tab-names-str:" tab-names-str)
+  (info "tab-cols-str:" tab-cols-str)
+  (info "expr-map-str:" expr-map-str)
   (infix.core/suppress! 'e)
+  (def expr-map-1 (resolve-expr-map expr-map-str))
   (let [hive-dw-dir "hdfs://192.168.1.3:9000/user/hive/warehouse"
-        expr-map (resolve-expr-map expr-map-str)
         ;partition-part (str "p_date={" (->> date-range-str parse-date-seq (clojure.string/join ",")) "}")
         [src-tab-name tgt-tab-name] (read-string tab-names-str) 
         [src-schema src-tab] (clojure.string/split (name src-tab-name) #"\." 2)
-        [tgt-schema tgt-tab] (clojure.string/split (name tgt-tab-name) #"\." 2)
+        [tgt-schema classified_name tgt-tab] (clojure.string/split (name tgt-tab-name) #"\." 3)
         src-path-part (clojure.string/join "/" [(str src-schema ".db") src-tab])
-        tgt-path-part (clojure.string/join "/" [(str tgt-schema ".db") tgt-tab])
-        conf (-> (conf/spark-conf) (conf/app-name (str "expr-" tgt-schema "-" tgt-tab)))
+        tgt-path-part (clojure.string/join "/" [(str tgt-schema ".db") classified_name tgt-tab])
+        conf (doto (conf/spark-conf) (conf/app-name (str "expr-" tgt-schema "-" tgt-tab))
+                 (.set "spark.hadoop.mapreduce.input.fileinputformat.input.dir.recursive" "true")
+                 (.set "spark.hadoop.yarn.resourcemanager.hostname" "192.168.1.3")
+                 (.set "spark.hadoop.fs.defaultFS" "hdfs://192.168.1.3:9000"))
         conf (cond-> conf (not (.get conf "spark.master" nil)) (conf/master "local[*]"))]
     (defonce sc (f/spark-context conf))
-    (-> sc .hadoopConfiguration (.set "mapreduce.input.fileinputformat.input.dir.recursive" "true"))
     (-> sc
         (f/whole-text-files (clojure.string/join "/" [hive-dw-dir src-path-part]))
         (f/flat-map (f/fn [key-text] (let [[key text] (f/untuple key-text)]
                                        (as-> text $
                                          (clojure.string/split $ #"\n")
-                                         (map #(-> % (clojure.string/split #"\001") (do-expr-map tab-cols-str expr-map)) $)
+                                         (map #(-> % (clojure.string/split #"\001") (do-expr-map tab-cols-str expr-map-1)) $)
                                          (.iterator $) ))))
         (f/foreach-partition (f/fn [key-line-itr] (write-hdfs key-line-itr (clojure.string/join "/" [hive-dw-dir tgt-path-part])))) )))
 
 (comment
-  (-main "[:ods.d_bolome_orders :4ml.d_bolome_orders]"
-         "['_prt_patho
+  (-main "[:ods.d_bolome_orders :4ml.larluo.d_bolome_orders]"
+         "['_prt_path
            'pay_date '_user_id 'order_id 'barcode
             'quantity 'price 'warehouse_id 'show_id 
             'preview_show_id 'replay_show_id 'coupon_id 'event_id 
-            copon_discount_amount system_discount_amount 'tax_amount 'logistics_amount]"
-         "{:is_copon_discount \":copon_discount_amount == 0\"
-           :is_system_discount \":system_discount_amount == 0.0\"
-           :is_discount \":is_copon_discount || :is_system_discount\"}"))
+            copon_discount_amount system_discount_amount tax_amount 'logistics_amount]"
+         "[[:is_copon_discount \":copon_discount_amount == 0\"]
+           [:is_system_discount \":system_discount_amount == 0.0\"]
+           [:is_discount \":is_copon_discount || :is_system_discount\"]]")
+  (-main
+   "[:model.d_bolome_inventory, :4ml.bbb.d_bolome_inventory]"
+   "['_prt_path, '_snapshot_date, '_warehouse_id, 'barcode, stock]"
+   "[[:gggg, \":stock > 0\"]]")
+  )
+
