@@ -1,5 +1,5 @@
 (ns cascalog-etl.core
-  (:require [cascalog.api :refer [?- ??- <- ?<- ??<- stdout]]
+  (:require [cascalog.api :refer [?- ??- <- ?<- ??<- stdout defmapfn defmapop mapfn]]
             [cascalog.logic.def :refer [defmapcatfn]]
             [cascalog.logic.ops :as c ]
             [cascalog.playground :refer [sentence person age]]
@@ -21,22 +21,20 @@
        (r/map #(->> % (partition 9 9 [0]) first vec))
        (into [])))
 
+(defmapop square [&coll] (map #(hash-map (name coll) coll) coll))
+
+
 (def score-channel
-  (<- [?dimensions ?channel ?value]
+  (<- [?selector ?dimension-metrics]
       ; [period dmbd bg bottler channel code item  fact value]
+      ; ["Availability / 产品铺货", "SOVI / 排面占有率", "Cooler / 冰柜", "Activation / 渠道活动", "价格沟通.*"]
       (score :> ?period ?dmbd ?bg ?bottler ?channel ?code ?channel "Score" ?value)
-      (vector :< ?period ?bg ?bottler :>> ?dimensions)))
-
-(def data [[1 11 111] [2 22 222]])
-
-(?<- (stdout)
-     [?multi]
-     (data ?one ?two ?three)
-     (list :< ?one ?two ?three :> ?multi)
-     )
+      ((mapfn [header & coll] (map vector header coll))
+           [:period :bg :bottler] ?period ?bg ?bottler :> ?selector)
+      ((aggregatefn ([] {})
+                    ([acc val] )
+                    ([x] [x]))
+           [:channel :bg :value] ?channel ?bg ?value :> ?dimension-metrics)  ))
 
 (?- (stdout) score-channel)
 
-(first (range 1 10))
-
-(#'inc 1)
