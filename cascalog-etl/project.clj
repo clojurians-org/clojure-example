@@ -11,4 +11,6 @@
                  [com.taoensso/timbre "4.7.4"]
                  [com.fzakaria/slf4j-timbre "0.3.2"]
                  [mysql/mysql-connector-java "6.0.3"]
+                 [honeysql "0.8.1"]
+                 [org.clojure/data.json "0.2.6"]
                  [cascalog/cascalog-core "3.0.0"]])
