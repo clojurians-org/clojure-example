@@ -6,8 +6,9 @@
   :profiles {:provided {:dependencies [[org.apache.hadoop/hadoop-client "2.7.3"]]}}
   :repositories {"sonatype-oss-public" "http://conjars.org/repo/"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [cascading/cascading-jdbc-mysql "3.0.0"]
+                 [cascading/cascading-jdbc-mysql "2.5.5"]
                  [dk.ative/docjure "1.11.0"]
                  [com.taoensso/timbre "4.7.4"]
                  [com.fzakaria/slf4j-timbre "0.3.2"]
+                 [mysql/mysql-connector-java "6.0.3"]
                  [cascalog/cascalog-core "3.0.0"]])
