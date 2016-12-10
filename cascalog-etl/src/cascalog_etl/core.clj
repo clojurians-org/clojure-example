@@ -56,9 +56,8 @@
                                                ])) (keys it)))
        ?period-values :> ?period ?value !pp-value !last-dec-value)) )
 
-(def score-channel
+(def score-channel_bg
   (<- [?period ?selector !dimension-metrics]
-      ; ["Availability / 产品铺货", "SOVI / 排面占有率", "Cooler / 冰柜", "Activation / 渠道活动", "价格沟通.*"]
       (score-window  :> ?period ?dmbd ?bg ?bottler ?channel ?code ?channel "Score" ?value !pp-value !last-dec-value)
       (((fn [header] (mapfn [& coll] [(mapv vector header coll)] ))
            [:period :bg :bottler]) ?period ?bg ?bottler :> ?selector)
@@ -71,15 +70,18 @@
                        ([x] [x])))
         [[:channel :bg] [:score :last-dec-score :pp-score]]) ?channel ?bg ?value !pp-value !last-dec-value :> !dimension-metrics)) )
 
+(def score-kpi_bg
+    ; ["Availability / 产品铺货", "SOVI / 排面占有率", "Cooler / 冰柜", "Activation / 渠道活动", "价格沟通.*"]
+  )
+
 (defn json-format [pair-obj]
   (-> (prewalk #(if (and (sequential? %) (= (count %) 2)  (keyword? (first %)) (not (instance? java.util.Map$Entry %)) )
                   (str (-> % first name) "=" (-> % second str))
-                 %) pair-obj) 
+                  %) pair-obj) 
       (json/write-str :escape-unicode false :escape-slash false))  )
-
-(def score-channel_bg-mysql
+(defn score-mysql-sink [subquery]
   (<- [?dw_dt ?project ?category ?report ?selector ?selector-desc ?dimension-metrics]
-      (score-channel :> ?period ?selector-edn ?dimension-metrics-edn)
+      (subquery :> ?period ?selector-edn ?dimension-metrics-edn)
       (identity ?period :> ?dw_dt)
       (json-format ?selector-edn :> ?selector)
       (json-format ?dimension-metrics-edn :> ?dimension-metrics)
@@ -100,5 +102,9 @@
             (into-array (map #(clojure.string/replace % #"-" "_") header) )) ) )
 
 (comment
-  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) score-channel-mysql)
+  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) (score-mysql-sink score-channel_overall ) ) 
+  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) (score-mysql-sink score-channel) )
+  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) (score-mysql-sink score-channel_bg) )
+  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) (score-mysql-sink score-kpi))
+  (?- (mysql-tap ["dw_dt"  "project" "category" "report" "selector" "selector-desc" "dimension-metrics"]) (score-mysql-sink score-kpi_bg))
   )
