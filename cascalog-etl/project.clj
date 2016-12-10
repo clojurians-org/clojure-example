@@ -13,4 +13,5 @@
                  [mysql/mysql-connector-java "6.0.3"]
                  [honeysql "0.8.1"]
                  [org.clojure/data.json "0.2.6"]
-                 [cascalog/cascalog-core "3.0.0"]])
+                 [cascalog/cascalog-core "3.0.0"]
+                 [clj-time "0.12.2"]])
