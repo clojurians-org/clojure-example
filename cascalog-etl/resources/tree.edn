@@ -1,0 +1,172 @@
+{"[G22]Hyper 大卖场"
+ {:DATA {}
+  :CHILDREN {"[G23]Availability / 产品铺货"
+             {:DATA {}
+              :CATEGORY "Availability / 产品铺货"
+              :CHILDREN {"[G24]Sparkling / 汽水"
+                         {:DATA {}
+                          :CHILDREN {"[H8]330ml CAN (Coke & Sprite & Fanta Orange & Schweppes +C) / 330ml 罐装 (可乐+雪碧+芬达橙味+怡泉+C)"
+                                     "[H9]500/600ml PET (Coke & Sprite) / 500/600ml 塑料瓶 (可乐+雪碧)"
+                                     "[H17]500/600ml PET (Fanta Orange & Fanta any other 2 flavors & Schweppes +C) / 500/600ml 塑料瓶 (芬达橙味+芬达任意两个其他口味+怡泉+C)"
+                                     "[H10]888ml/1.25L/1.5L PET (Coke & Sprite & Fanta Orange) / 888ml/1.25L/1.5L  塑料瓶 (可乐+雪碧+芬达橙味)"
+                                     "[H11]2L/2L+ PET (Coke & Sprite & Fanta Orange) / 2L/2L+  塑料瓶 (可乐+雪碧+芬达橙味)"
+                                     "[H12]Multi-Pack 4CAN/6CAN/8CAN (Coke & Sprite) / 多罐装 4罐/6罐/8罐 (可乐+雪碧)" }}
+                         "[G25]STILL / 非汽水"
+                         {:DATA {}
+                          :CHILDREN {"[H13]450ml PET (MMPO & MM any other 4 flavors) / 450ml 塑料瓶 (美汁源果粒橙+美汁源果汁任意四个其它口味)"
+                                     "[H14]MMPO MS PET 1.25L+1.8L / 美汁源果粒橙任一大包装产品(包括1.25L和1.8L)"
+                                     "[H15]550ml PET Icedew / 冰露任一550ml塑料瓶产品"
+                                     "[H16]450ml PET Dairy (any 4 flavors) / 果粒奶优450ml塑料瓶任意四个口味"
+                                     }} }}
+             "[G26]SOVI / 排面占有率"
+             {:DATA {}
+              :CATEGORY "SOVI / 排面占有率"
+              :CHILDREN {"[H1]KO NARTD share of shelf&cooler achieved 50% / 可口可乐NARTD产品排面占有率达到50% (货架+冰柜)"
+                         "[H2]KO sparkling share of shelf&cooler achieved 80% / 可口可乐汽水产品排面占有率达到80% (货架+冰柜)"
+                         "[H3]KO juice share of shelf&cooler achieved 50% / 可口可乐果汁产品排面占有率达到50% (货架+冰柜)" }}
+             "[G27]Cooler / 冰柜"
+             {:DATA {}
+              :CATEGORY "Cooler / 冰柜"
+              :CHILDREN {"[H4]Purity - 95% KO / 纯净度 - 95% 可口可乐"
+                         "[H5]The ratio of No. of KO door vs KO+KB achieved 80% / 可口可乐冰柜门数/可口可乐+康百冰柜门数达到80%" }}
+             "[H6]Activation - 2nd display sqm of  KO/KO+KB achieved 80% / 渠道活动 - 2次陈列面积(可口可乐/可口可乐加康百达到80%)"
+             {:DATA {}
+              :CATEGORY "Activation / 渠道活动"
+              :CHILDREN {}}
+             "[H7]Price Communication - KO SKU Price label / 价格沟通-可口可乐SKU价格标签"
+             {:DATA {}
+              :CATEGORY "Price Communication / 价格沟通"
+              :CHILDREN {}}}}
+ "[G01]Super 超市"
+ {:DATA {}
+  :CHILDREN {"[G02]Availability / 产品铺货"
+             {:DATA {}
+              :CATEGORY "Availability / 产品铺货"
+              :CHILDREN {"[G03]Sparkling / 汽水"
+                        {:DATA {}
+                         :CHILDREN {"[F8]330ml CAN (Coke & Sprite & Fanta Orange & Schweppes +C) / 330ml 罐装 (可乐+雪碧+芬达橙味+怡泉+C)"
+                                    "[F9]500/600ml PET (Coke & Sprite) / 500/600ml 塑料瓶 (可乐+雪碧)"
+                                    "[N1]500/600ml PET (Fanta Orange & Fanta any other flavor & Schweppes +C) / 500/600ml 塑料瓶 (芬达橙味+芬达任意一个其他口味+怡泉+C)"
+                                    "[F10]888ml/1.25L/1.5L PET (Coke & Sprite & Fanta Orange) / 888ml/1.25L/1.5L  塑料瓶 (可乐+雪碧+芬达橙味)"
+                                    "[F11]2L/2L+ PET (Coke & Sprite & Fanta Orange) / 2L/2L+  塑料瓶 (可乐+雪碧+芬达橙味)"
+                                    "[F12]Multi-Pack 4CAN/6CAN/8CAN (Coke & Sprite) / 多罐装 4罐/6罐/8罐 (可乐+雪碧)"
+                                    }}
+                        "[G04]STILL / 非汽水"
+                        {:DATA {}
+                         :CHILDREN {"[F13]450ml PET (MMPO & MM any other 3 flavors) / 450ml 塑料瓶 (美汁源果粒橙+美汁源果汁任意三个其它口味)"
+                                    "[F14]MMPO MS PET 1.25L/1.8L / 美汁源果粒橙任一大包装产品(包括1.25L/1.8L)"
+                                    "[F15]550ml PET Icedew / 冰露任一550ml塑料瓶产品"
+                                    "[F16]450ml PET Dairy (any 2 flavors) / 果粒奶优450ml塑料瓶任意两个口味"
+                                    }} 
+                        }}
+             "[G05]SOVI / 排面占有率"
+             {:DATA {}
+              :CATEGORY "SOVI / 排面占有率"
+              :CHILDREN {"[F1]KO NARTD share of shelf&cooler achieved 50% / 可口可乐NARTD产品排面占有率达到50% (货架+冰柜)"
+                         "[F2]KO sparkling share of shelf&cooler achieved 80% / 可口可乐汽水产品排面占有率达到80% (货架+冰柜)"
+                         "[F3]KO juice share of shelf&cooler achieved 50% / 可口可乐果汁产品排面占有率达到50% (货架+冰柜)"
+                         }}
+             "[G06]Cooler / 冰柜"
+             {:DATA {}
+              :CATEGORY "Cooler / 冰柜"
+              :CHILDREN {"[F4]Purity - 95% KO / 纯净度 - 95% 可口可乐"
+                         "[F5]The ratio of No. of KO door vs KO+KB achieved 80% / 可口可乐冰柜门数/可口可乐+康百冰柜门数达到80%" 
+                         }}
+             "[F6]Activation - 2nd display sqm of  KO/KO+KB achieved 80% / 渠道活动 - 2次陈列面积(可口可乐/可口可乐加康百达到80%)" []
+             {:DATA {}
+              :CATEGORY "Activation / 渠道活动"
+              :CHILDREN {}}
+             "[F7]Price Communication - KO SKU Price label / 价格沟通-可口可乐SKU价格标签"
+             {:DATA {}
+              :CATEGORY "Price Communication / 价格沟通"
+              :CHILDREN {}}}}
+ "[G07]GT 传统食杂"
+ {:DATA {}
+  :CHILDREN {"[G08]Availability / 产品铺货"
+             {:DATA {}
+              :CATEGORY "Availability / 产品铺货"
+              :CHILDREN {"[G09]Sparkling / 汽水"
+                         {:DATA {}
+                          :CHILDREN {"[F25]300ml PET (Coke & Sprite) / 300ml 塑料瓶 (可乐+雪碧)"
+                                     "[F26]330ml CAN (Coke & Sprite) / 330ml 罐装 (可乐+雪碧)"
+                                     "[F27]500/600ml PET (Coke & Sprite & Fanta Orange & Schweppes +C) / 500/600ml 塑料瓶 (可乐+雪碧+芬达橙味+怡泉+C)"
+                                     "[F28]1.25L/1.5L/2L PET (Coke & Sprite) / 1.25L/1.5L/2L  塑料瓶 (可乐+雪碧)"
+                                     } }
+                         "[G10]STILL / 非汽水"
+                         {:DATA {}
+                          :CHILDREN {"[F29]450ml PET (MMPO & MM any other 2 flavors) / 450ml 塑料瓶 (美汁源果粒橙+美汁源果汁任意二个其它口味)"
+                                     "[F30]MMPO MS PET 1.25L/1.8L / 美汁源果粒橙任一大包装产品 (包括1.25L/1.8L)"
+                                     "[F31]550ml PET Icedew / 冰露任一550ml塑料瓶产品"
+                                     "[F32]450ml PET Dairy (any flavor) / 果粒奶优450ml塑料瓶任意一个口味"
+                                     }}}}
+             "[G11]SOVI / 排面占有率"
+             {:DATA {}
+              :CATEGORY "SOVI / 排面占有率"
+              :CHILDREN {"[F17]KO NARTD share of ambient shelf&cooler achieved 50% / 可口可乐NARTD产品排面占有率达到50% (常温陈列+冰柜)"
+                         "[F18]KO sparkling share of ambient shelf&cooler achieved 80% / 可口可乐汽水产品排面占有率达到80% (常温陈列+冰柜)"
+                         "[F19]KO juice share of ambient shelf&cooler achieved 50% / 可口可乐果汁产品排面占有率达到50% (常温陈列+冰柜)"}
+              }
+             "[G12]Cooler / 冰柜"
+             {:DATA {}
+              :CATEGORY "Cooler / 冰柜"
+              :CHILDREN {"[F20]Purity / 纯净度"
+                         "[F21]1st Position / 第一位置"
+                         "[F22]Penetration Rate / 渗透率"
+                         }}
+             "[F23]Activation - KO product available,2nd Display with POSM / 渠道活动 - 带有POSM的二次陈列"
+             {:DATA {}
+              :CATEGORY "Activation / 渠道活动"
+              :CHILDREN {}}
+             "[F24]Price Communication - Package label / 价格沟通-各包装标签"
+             {:DATA {}
+              :CATEGORY "Price Communication / 价格沟通"
+              :CHILDREN {}}}}
+ "[G13]E&D M/H / 中高档餐饮"
+ {:DATA {}
+  :CHILDREN {"[G14]Availability / 产品铺货"
+             {:DATA {}
+              :CATEGORY "Availability / 产品铺货"
+              :CHILDREN {"[G15]Sparkling / 汽水"
+                         {:DATA {}
+                          :CHILDREN {"[F37]330ml CAN (Coke & Sprite) / 330ml 罐装 (可乐+雪碧)"
+                                     "[F38]MS PET 1.25L/1.5L/2L/2L+ (Coke & Sprite) / 可乐和雪碧任一大包装产品 (包括1.25L/1.5L/2L/2L+)"}}
+                         "[G16]STILL / 非汽水"
+                         {:DATA {}
+                          :CHILDREN {"[F39]MMPO MS PET 1.25L/1.8L / 美汁源果粒橙任一大包装产品 (包括1.25L/1.8L)"
+                                     }}
+                         }}
+             "[F33]Cooler - 40% KO Inventory rate  / 冰柜 - 40% 可口可乐库存率"
+             {:DATA {}
+              :CATEGORY "Cooler / 冰柜"}
+             "[G17]Activation / 渠道活动"
+             {:DATA {}
+              :CATEGORY "Activation / 渠道活动"
+              :CHILDREN {"[F34]Merchandising Display / 生动化陈列"
+                         "[F35]Full Case Display or Bar Table Display / 可口可乐堆箱陈列或吧台陈列"
+                         }}
+             "[F36]Price Communication - Price label / 价格沟通 - 价格标签"
+             {:DATA {}
+              :CATEGORY "Price Communication / 价格沟通"
+              :CHILDREN {}} }}
+ "[G18]E&D Trad / 传统餐饮"
+ {:DATA {}
+  :CHILDREN {"[G19]Availability / 产品铺货"
+             {:DATA {}
+              :CATEGORY "Availability / 产品铺"
+              :CHILDREN {"[G20]Sparkling / 汽水"
+                         {:DATA {}
+                          :CHILDREN {"[F44]RB (Coke & Sprite & Fanta Orange) / 玻璃瓶 (可乐+雪碧+芬达橙味)" {}}}
+                         }}
+             "[F40]Cooler - 40% KO Inventory rate / 冰柜 - 40% 可口可乐库存率"
+             {:DATA {}
+              :CATEGORY "Cooler / 冰柜"
+              :CHILDREN {}}
+             "[G21]Activation / 渠道活动"
+             {:DATA {}
+              :CATEGORY "Activation / 渠道活动"
+              :CHILDREN {"[F41]RB Combo Promotion / 玻璃瓶套餐活动"
+                         "[F42]RB Full Case Display / 玻璃瓶堆箱陈列"}}
+             "[F43]Price Communication - KO RB price label / 价格沟通 - 可口可乐玻璃瓶价格标签"
+             {:DATA {}
+              :CATEGORY "Price Communication / 价格沟通"
+              :CHILDREN {}}}} }
