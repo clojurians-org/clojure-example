@@ -1,6 +1,6 @@
-(ns cascalog-etl.core-test
+(ns etl-cascalog.core-test
   (:require [clojure.test :refer :all]
-            [cascalog-etl.core :refer :all]))
+            [etl-cascalog.core :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."
