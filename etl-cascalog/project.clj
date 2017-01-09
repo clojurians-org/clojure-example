@@ -11,8 +11,9 @@
                  [cheshire "5.6.3"]
                  [org.postgresql/postgresql "9.4.1212"]
                  [cascalog/cascalog-core "3.0.0"]
-                 #_[cascading/cascading-jdbc-postgresql "2.5.5" :exclusions [postgresql org.postgresql/postgresql]]
-                 [cascading/cascading-jdbc-postgresql "3.0.0" :exclusions [postgresql org.postgresql/postgresql]] 
+                 [cascading/cascading-jdbc-postgresql "2.5.5" :exclusions [postgresql org.postgresql/postgresql]]
+                 #_[cascading/cascading-jdbc-postgresql "3.0.0" :exclusions [postgresql org.postgresql/postgresql]] 
                  [instar "1.0.10" :exclusions [org.clojure/clojure]]
                  [org.clojure/core.match "0.3.0-alpha4"]
-                 [clj-time "0.12.2"] ])
+                 [clj-time "0.12.2"]
+                 [clojurewerkz/balagan "1.0.5" :exclusions [org.clojure/clojure]] ])
