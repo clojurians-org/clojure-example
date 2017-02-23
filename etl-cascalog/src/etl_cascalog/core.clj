@@ -41,7 +41,7 @@
               (fn [x] (match x [(node :guard #(contains? (map->code-map m) (node->code %))) node-attrs]
                              [node (merge-with merge node-attrs {:DATA ((map->code-map m) (node->code node))})] :else x) )
               trgx)) )
-
+(defn )
 (comment
   (re-find #"\[(.*)]")
   (def data {"[x]a" {:new-name "aa"}
@@ -149,7 +149,7 @@
 (defn score-trgx [[start-dt end-dt]]
   (<- [?dw-dt ?bg ?bottler ?trgx-data]
       ((score-sliding [start-dt end-dt]) :> ?dw-dt ?mbd ?bg ?bottler ?channel ?code ?item ?fact ?value ?max-value !pp-value !last-dec-value)
-      ((vars->kv [:value :max_value :pp_value :last_dec_value]) ?value ?max-value !pp-value !last-dec-value :> ?value-tuple-kv)
+
       (str "[" ?code "]" ?item :> ?code-item)
       (collect-kv ?code-item ?value-tuple-kv :> ?code-item-kv)
       ((kv->trgx trgx-kpi) ?code-item-kv :> ?trgx-data) ))
@@ -246,7 +246,6 @@
   (?- report-tap-out (score-bottler_ranking-report (report->next-dt report-tap-out "bottler_ranking")))
   (?- report-tap-out (score-sku_availability-report (report->next-dt report-tap-out "sku_availability")) )
   (?- report-tap-out (score-availability_period_trend-report))
-  
   )
 
 (comment
@@ -256,4 +255,3 @@
         (identity ?b :> ?c ?d)
         )
   )
-
