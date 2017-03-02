@@ -10,7 +10,6 @@
    [ring.middleware.basic-authentication :refer [wrap-basic-authentication]]
    [ring.middleware.defaults :refer [wrap-defaults]]
    [ring.middleware.cors :refer [wrap-cors]]
-   [ring.util.response :refer [redirect]]
    [compojure.route :as route]
    [hiccup.core :as hiccup]
    [compojure.core :as comp :refer [defroutes context GET POST ANY]]
@@ -26,8 +25,7 @@
    [honeysql-postgres.format :refer :all]
    [honeysql-postgres.helpers :refer [with-columns]]
    #_[ring.middleware.json :refer [wrap-json-body]]
-   [buddy.hashers :as hashers])
-  (:gen-class))
+   [buddy.hashers :as hashers]))
 
 (defn future-ts [seconds] (tf/unparse (-> (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ") (.withZone (t/default-time-zone))) (t/plus (t/now) (t/seconds seconds)) ) )
 (defn latest-ts [] (future-ts 0))
@@ -110,17 +108,20 @@
 (defn merge-chain-args [chain-args api result]
   (merge chain-args {:status (:status result) :result (merge (:result chain-args) result) api result}))
 
+
+
 ;; {:GET [:index :show] :POST [:create] :PUT [:update] :DELETE [:delete]}
 (defn cache-resource-show [chain-args]
   (prn {:cache-resource-show {:chain-args chain-args}})
   (let [result {:status :forward}]
     (merge-chain-args chain-args :cache-resource-show result)))
 
+
 (defn auth-token-save [db-spec {{client-id :client-id request-client-secret :client-secret body :body} :args :as chain-args}]
   (prn {:auth-token-save {:client-id client-id :client-secret request-client-secret :body body}})
   (if-not client-id
     (merge-chain-args chain-args :auth-token-save {:status :error :body "client-id not found!"})
-    (let [[request-scope request-auth-type] (map body ["scopes" "auth_type"])
+    (let [[request-scope request-auth-type] (map body ["scope" "auth_type"])
         [client-secret client-scopes client-auths expire-period] (map (select-auth-client db-spec client-id) [:secret :scopes :auth_types :expire_period])
         result (cond (not (hashers/check request-client-secret client-secret))
                      {:status :error :body (format "client[%s] auth failed!" client-id)}
@@ -153,6 +154,7 @@
   (let [result {:status :ok}]
     (merge-chain-args chain-args :auth-acl-show result))  )
 
+
 (defn dispatch-route-save [zk-spec {{{id "id" url "url"} :body} :args :as chain-args}]
   (prn {:dispatch-route-save {:id id :url url}})
   (let [result {:status :success :route (swap! zk-spec assoc id url)}]
@@ -163,18 +165,23 @@
   (let [result {:status :success :routes @zk-spec}]
     (merge-chain-args chain-args :dispatch-route-index result))  )
 
-(defn dispatch-resource-show [zk-spec {{token-id :token-id request-method :request-method resource-id :resource-id
-                                        query-params :query-params query-string :query-string body :body
-                                        } :args :as chain-args}]
+(defn dispatch-resource-show [zk-spec {{token-id :token-id request-method :request-method
+                                        resource-id :resource-id query-params :query-params body :body} :args :as chain-args}]
   (prn {:dispatch-resource-show {:token-id token-id :zk-spec @zk-spec :resource-id resource-id :query-params query-params :body body}})
   (let [route  (-> resource-id (clojure.string/split #":") first keyword)
-        path (-> resource-id (clojure.string/replace #":|=" "/"))]
-    (doto
-        {:status 302
-         :headers (merge {"Location" (str (@zk-spec route) "/" path
-                                          (when body (str "?_b64=" (->> (generate-string body) .getBytes base64/encode (map char) (apply str)))) )
-                          "Authorization" (format "Bearer %s" token-id)}) }
-      (prn "@redirect"))) )
+        path (-> resource-id (clojure.string/replace #":|=" "/"))
+        request {:url (str (@zk-spec route) "/" path)
+                 :method request-method
+                 :headers {"Authorization" (format "Bearer %s" token-id)}
+                 :query-params query-params
+                 :body (generate-string body)
+                 :as :text
+                 :timeout 2000
+                 :insecure? true}
+        _ (prn {:request request})        
+        response  @(httpkit-client/request request)]
+    (let [{:keys [error body]} response]
+      (if error {:status :error :body (prn-str error)} body))    ) )
 
 (defn chain-resource-show [{:keys [token-spec acl-spec route-spec]} args]
   (reduce #(if-not (contains? #{:success :error} (:status %1)) (%2 %1) (reduced %1))
@@ -184,9 +191,9 @@
            (partial auth-acl-show acl-spec)
            (partial dispatch-resource-show route-spec)]))
 
+
 (defn parse-request [request]
-  (prn {:parse-request {:request request}})
-  (let [args (select-keys request [:remote-addr :headers :body :query-params :query-string :request-method])
+  (let [args (select-keys request [:remote-addr :headers :body :query-params :request-method])
         header-ext (when-let [authorization-header (get-in args [:headers "authorization"])]
                         (let [[authorization-type authorization-string] (clojure.string/split authorization-header #" ")]
                           (cond (= authorization-type "Basic")
@@ -202,19 +209,26 @@
            (GET "/ping" [] (generate-json-string ["pong"]))
            (POST "/token" request
                  (->> {:args (-> request parse-request) }
-                      (auth-token-save pg-spec) :auth-token-save generate-json-string) )
+                      (auth-token-save pg-spec)
+                      :auth-token-save
+                      generate-json-string) )
            (GET "/token/:token-id" [token-id :as request]
                 (->> {:args (-> request parse-request (assoc :token-id token-id)) }
-                     (auth-token-show pg-spec) :auth-token-show generate-json-string))
+                     (auth-token-show pg-spec)
+                     :auth-token-show
+                     generate-json-string))
            (ANY "/resource/:resource-id" [resource-id :as request]
                 (->> {:args (-> request parse-request (assoc :resource-id resource-id))}
-                     (chain-resource-show {:token-spec pg-spec :route-spec zk-spec}) ))
+                     (chain-resource-show {:token-spec pg-spec :route-spec zk-spec})
+                     generate-json-string))
            (POST "/route" request
                  (->> {:args (-> request parse-request)}
-                      (dispatch-route-save zk-spec) :dispatch-route-save generate-json-string) )
+                      (dispatch-route-save zk-spec)
+                      :dispatch-route-save
+                      generate-json-string) )
            (GET "/route" request 
                 (->> {:args (-> request parse-request) }
-                     (dispatch-route-index zk-spec) :dispatch-route-index generate-json-string ))
+                     (dispatch-route-index zk-spec) :dispatch-route-index generate-json-string))
            ))
 
 (defrecord HttpServer [http-config]
@@ -229,7 +243,7 @@
       (prn (format "Http-Kit server is running at http://0.0.0.0:%s" port))
       (assoc component :server server)))
   (stop [{:keys [server] :as component}]
-    (try+ (server :timeout 5000 :thread 50) (finally (prn "Game is over!")))
+    (try+ (server :timeout 5000) (finally (prn "Game is over!")))
     (assoc component :server nil)
     (prn "Stopping HTTP Server")))
 
@@ -252,9 +266,8 @@
                  :scopes "REPORT-API-V1" :auth_types "password" :expire_period (* 60 60 12)}
                 {:id "jupiter-api-v1" :secret "spiderdt.com" :emails "larluo@spiderdt.com"
                  :scopes "STORAGE-API-V1,SCHEDULER-API-V1,DB-API-V1,REPORT-API-V1" :auth_types "password" :expire_period (* 60 60 12)}])
-  (def users [#_{:id "larluo@spiderdt.com" :secret "spiderdt.com" :email "larluo@spiderdt.com" :roles "ADMIN"}
-              #_{:id "chong@spiderdt.com" :secret "spiderdt.com" :email "chong@spiderdt.com" :roles "GUEST"}
-              {:id "chong" :secret "spiderdt" :email "chong@spiderdt.com" :roles "GUEST"}])
+  (def users [{:id "larluo@spiderdt.com" :secret "spiderdt.com" :email "larluo@spiderdt.com" :roles "ADMIN"}
+              {:id "chong@spiderdt.com" :secret "spiderdt.com" :email "chong@spiderdt.com" :roles "GUEST"}])
   (create-chain-auth-tabs-if pg-spec)
   (insert-auth-clients pg-spec clients)
   (insert-auth-users pg-spec users)
@@ -262,12 +275,10 @@
   (select-auth-user pg-spec "larluo@spiderdt.com")
   
   (auth-token-save pg-spec {:args {:client-id "cocacola-api-v1"
-                                   :body {"scopes" "REPORT-API-V1" "auth_type" "password" "username" "larluo@spiderdt.com" "password" "spiderdt.com"}}} )
+                                   :body {"scope" "REPORT-API-V1" "auth_type" "password" "username" "larluo@spiderdt.com" "password" "spiderdt.com"}}} )
 
   (select-auth-token pg-spec "cfa18b9e-f89e-4139-9014-246095e0f0b1")
   (go)
   (stop)
-  (->> "{\"args\":{\"reportIds\":[\"channel\",\"kpi\"]}}" .getBytes base64/encode (map char) (apply str) )
+  
   )
-
-
