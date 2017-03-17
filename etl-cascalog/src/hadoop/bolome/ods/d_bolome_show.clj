@@ -19,69 +19,104 @@
 ;#   v1_0=2016-09-28@larluo{create}
 ;#*********************************
 
-(ns bolome.ods.d-bolome-show
+(ns hadoop.bolome.ods.d_bolome_show
   (:require [cascalog.api :refer [?- ??- <- ?<- ??<- stdout defmapfn mapfn defmapcatfn mapcatfn defaggregatefn aggregatefn cross-join select-fields]]
             [cascalog.logic.ops :as c]
-            [taoensso.timbre :refer [info debug warn set-level!]]
-            [clj-time.core :as t :refer [last-day-of-the-month-]]
-            [clj-time.format :as tf]
-            [clj-time.periodic :refer [periodic-seq]]
-            [clojure.core.match :refer [match]]
-            [cheshire.core :refer [generate-string]]
-            [clojurewerkz.balagan.core :as tr :refer [extract-paths]]
-            [common.trgx :refer :all]
-            [clojure.java.jdbc :as j])
-  (:import [cascading.tuple Fields]
-           [cascading.jdbc JDBCTap JDBCScheme]))
+            [cascalog.cascading.tap :refer [hfs-seqfile hfs-textline]]
+            [cascalog.more-taps :refer [hfs-delimited hfs-wrtseqfile hfs-wholefile]]
+            [taoensso.timbre :refer [info debug warn set-level!]])
+  (:gen-class))
+
 
 (set-level! :warn)
 
-(defn merge-stg-ods-tmp [stg-tap-in ods-tap-out]
-  #_(??- (merge-stg-ods-tmp stg-tap-in ods-tap-out))
-  (<- [?dw-dt ?dw-ts ?dw-id ?show-id ?show-name ?begin-time ?end-time]
-         (stg-tap-in :> ?join-show-id !!stg-show-name !!stg-begin-time !!stg-end-time)
-         (identity [nil] :> !stg-dw-id)
-         (convert-null !!stg-begin-time)
-         ((c/each identity) !!stg-end-time :> !stg-dw-ts)
-         (ts->dt !stg-dw-ts :> !stg-dw-dt)
-         (ods-tap-out :> !!ods-dw-dt !!ods-dw-ts !!ods-dw-id ?join-show-id !!ods-show-name !!ods-begin-time !!ods-end-time)
-         (or-tuple !stg-dw-id !!ods-dw-id !stg-dw-dt !!ods-dw-dt !stg-dw-ts !!ods-dw-ts
-                   !!stg-show-name !!ods-show-name !!stg-begin-time !!ods-begin-time !!stg-end-time !!ods-end-time :>
-                   !dw-id-merge ?dw-dt-merge ?dw-ts-merge ?show-name-merge ?begin-time-merge ?end-time-merge)
-         (identity 0 :> ?prt-no)
-         ((row-num {0 0} (load-max-dw-id ods-tap-out))
-              ?prt-no !dw-id-merge ?dw-dt-merge ?dw-ts-merge ?join-show-id ?show-name-merge ?begin-time-merge ?end-time-merge :> ?dw-id-kv)
-         (split-rows ?dw-id-kv :> ?dw-id-tuple)
-         ((tkv-select [:dw-id :tuple]) ?dw-id-tuple :> ?dw-id ?tuple)
-         (identity ?tuple :> ?dw-dt ?dw-ts ?show-id ?show-name ?begin-time ?end-time)) )
+(defn or-t [& tuple] (->> tuple (partition 2) (mapv (partial some identity))))
+(defn collect-dw-id-row [max-dw-id]
+  (aggregatefn
+   ([] [])
+   ([acc & tuple] (conj acc (vec tuple)))
+   ([x] (vector {:rows (->> x
+                            (reduce (fn [[idx acc-t] [dw-id & t]]
+                                      [(cond-> idx (nil? dw-id) inc) (conj acc-t (vec (cons (or dw-id (inc idx)) t)))])
+                                    [max-dw-id []])
+                            second)}))))
+
+(defmapcatfn split-rows [x] (if (:rows x) (:rows x) x))
 
 (defn -main []
-  (def stg-tap-in (pg-tap "dw" "stg.d_bolome_show" ["show-id" "show-name" "begin-time" "end-time"]))
-  (def ods-tap-out (pg-tap "dw" "ods.d_bolome_show" ["dw-dt" "dw-ts" "dw-id" "show-id" "show-name" "begin-time" "end-time"]))
-  (def ods-tmp-tap-out (pg-tap "dw" "d_bolome_show_ods" ["dw-dt" "dw-ts" "dw-id" "show-id" "show-name" "begin-time" "end-time"]))
+  (as-> (<- [?dw-src-id ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?show-id ?show-name ?begin-ts ?end-ts]
+            ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/stg.db/d_bolome_show" :skip-header? true :delimiter ",")
+             :> ?show-id ?show-name ?begin-ts ?end-ts)
+            (identity ?show-id :> ?dw-src-id)
+            (identity ?begin-ts :> ?dw-first-ts)
+            (subs ?dw-first-ts 0 10 :> ?dw-first-dt )
+            (identity ?begin-ts :> ?dw-latest-ts)
+            (subs ?dw-latest-ts 0 10 :> ?dw-latest-dt))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/dd_bolome_show"
+                       :outfields ["?dw-src-id" "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?show-id" "?show-name" "?begin-ts" "?end-ts"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
 
-  (create-table-if ods-tap-out
-                   [[:dw_dt "CHAR(10)"]
-                    [:dw_ts "CHAR(24)"]
-                    [:dw_id :INT]
-                    [:show_id :TEXT]
-                    [:show_name :TEXT]
-                    [:begin_time :TEXT]
-                    [:end_time :TEXT]] )
-  (create-table-if ods-tmp-tap-out
-                   [[:dw_dt "CHAR(10)"]
-                    [:dw_ts "CHAR(24)"]
-                    [:dw_id :INT]
-                    [:show_id :TEXT]
-                    [:show_name :TEXT]
-                    [:begin_time :TEXT]
-                    [:end_time :TEXT]])
+  (defn latest-max-dw-id [] (-> (??<- [?max-dw-id]
+                                      ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_show" :delimiter "\001")
+                                       :#> 9 {0 ?dw-id})
+                                      (c/max ?dw-id :> ?max-dw-id))
+                                ffirst (or 0)))
   
-  (prn {:dt-rng (save-and-load-rng-dt! stg-tap-in ["?begin-time" "?end-time"] identity)} "running...")
-  (try (?- ods-tmp-tap-out (merge-stg-ods-tmp stg-tap-in ods-tap-out)) (catch Exception _))
-  (replace-into-ods ods-tap-out ods-tmp-tap-out)
-  )
+  (as-> (<- [?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?show-id ?show-name ?begin-ts ?end-ts]
+              ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/dd_bolome_show" :delimiter "\001")
+               :> ?j-dw-src-id
+               !!src-dw-first-dt !!src-dw-first-ts !!src-dw-latest-dt !!src-dw-latest-ts
+               !!src-show-id !!src-show-name !!src-begin-ts !!src-end-ts)
+              ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_show" :delimiter "\001")
+               :> !!tgt-dw-id ?j-dw-src-id
+               !!tgt-dw-first-dt !!tgt-dw-first-ts !!tgt-dw-latest-dt !!tgt-dw-latest-ts
+               !!tgt-show-id !!tgt-show-name !!tgt-begin-ts !!tgt-end-ts)
+              (or-t nil !!tgt-dw-id
+                    !!tgt-dw-first-dt !!src-dw-first-dt !!tgt-dw-first-ts !!src-dw-first-ts
+                    !!tgt-dw-latest-dt !!src-dw-latest-dt !!tgt-dw-latest-ts !!src-dw-latest-ts
+                    !!src-show-id !!tgt-show-id !!src-show-name !!tgt-show-name !!src-begin-ts !!tgt-begin-ts !!src-end-ts !!tgt-end-ts
+                    :> !mg-dw-id
+                    ?mg-dw-first-dt ?mg-dw-first-ts ?mg-dw-latest-dt ?mg-dw-latest-ts
+                    ?mg-show-id ?mg-show-name ?mg-begin-ts ?mg-end-ts)
+              ((collect-dw-id-row (latest-max-dw-id)) !mg-dw-id ?j-dw-src-id
+                 ?mg-dw-first-dt ?mg-dw-first-ts ?mg-dw-latest-dt ?mg-dw-latest-ts
+                 ?mg-show-id ?mg-show-name ?mg-begin-ts ?mg-end-ts
+                 :> ?dw-id-rows)
+              (split-rows ?dw-id-rows
+                            :> ?dw-id ?dw-src-id
+                            ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+                            ?show-id ?show-name ?begin-ts ?end-ts))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/ds_bolome_show"
+                       :outfields ["?dw-id" "?dw-src-id" "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?show-id" "?show-name" "?begin-ts" "?end-ts"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
 
-(comment
-  (-main)
+  (as-> (<- [?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?show-id ?show-name ?begin-ts ?end-ts]
+            ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/ds_bolome_show" :delimiter "\001")
+             :> ?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?show-id ?show-name ?begin-ts ?end-ts))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_show"
+                       :outfields ["?dw-id" "?dw-src-id"
+                                   "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?show-id" "?show-name" "?begin-ts" "?end-ts"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
   )

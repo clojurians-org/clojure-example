@@ -19,68 +19,108 @@
 ;#   v1_0=2016-09-28@larluo{create}
 ;#*********************************
 
-(ns bolome.ods.d-bolome-product_category
+(ns hadoop.bolome.ods.d_bolome_product_category
   (:require [cascalog.api :refer [?- ??- <- ?<- ??<- stdout defmapfn mapfn defmapcatfn mapcatfn defaggregatefn aggregatefn cross-join select-fields]]
             [cascalog.logic.ops :as c]
+            [cascalog.cascading.tap :refer [hfs-seqfile hfs-textline]]
+            [cascalog.more-taps :refer [hfs-delimited hfs-wrtseqfile hfs-wholefile]]
             [taoensso.timbre :refer [info debug warn set-level!]]
             [clj-time.core :as t :refer [last-day-of-the-month-]]
             [clj-time.format :as tf]
-            [clj-time.periodic :refer [periodic-seq]]
-            [clojure.core.match :refer [match]]
-            [cheshire.core :refer [generate-string]]
-            [clojurewerkz.balagan.core :as tr :refer [extract-paths]]
-            [common.trgx :refer :all]
-            [clojure.java.jdbc :as j])
-  (:import [cascading.tuple Fields]
-           [cascading.jdbc JDBCTap JDBCScheme]))
+            [clj-time.local :as tl]
+            [clj-time.periodic :refer [periodic-seq]])
+  (:gen-class))
+
 
 (set-level! :warn)
 
-(defn merge-stg-ods-tmp [stg-tap-in ods-tap-out]
-  #_(??- (merge-stg-ods-tmp stg-tap-in ods-tap-out))
-  (<- [?dw-dt ?dw-ts ?dw-id ?barcode ?product-name ?category-1 ?category-2]
-         (stg-tap-in :> ?join-barcode !!stg-product-name !!stg-category-1 !!stg-category-2)
-         (identity [nil] :> !stg-dw-id)
-         (identity (latest-ts) :> !stg-dw-ts)
-         (ts->dt !stg-dw-ts :> !stg-dw-dt)
-         (ods-tap-out :> !!ods-dw-dt !!ods-dw-ts !!ods-dw-id ?join-barcode !!ods-product-name !!ods-category-1 !!ods-category-2)
-         (or-tuple !stg-dw-id !!ods-dw-id !stg-dw-dt !!ods-dw-dt !stg-dw-ts !!ods-dw-ts
-                   !!stg-product-name !!ods-product-name !!stg-category-1 !!ods-category-1 !!stg-category-2 !!ods-category-2 :>
-                   !dw-id-merge ?dw-dt-merge ?dw-ts-merge ?product-name-merge ?category-1-merge ?category-2-merge)
-         (identity 0 :> ?prt-no)
-         ((row-num {0 0} (load-max-dw-id ods-tap-out))
-              ?prt-no !dw-id-merge ?dw-dt-merge ?dw-ts-merge ?join-barcode ?product-name-merge ?category-1-merge ?category-2-merge :> ?dw-id-kv)
-         (split-rows ?dw-id-kv :> ?dw-id-tuple)
-         ((tkv-select [:dw-id :tuple]) ?dw-id-tuple :> ?dw-id ?tuple)
-         (identity ?tuple :> ?dw-dt ?dw-ts ?barcode ?product-name ?category-1 ?category-2)) )
+(defn latest-ts [] (tf/unparse (->  (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ") (.withZone (t/default-time-zone)))  (t/now)))
+(defn or-t [& tuple] (->> tuple (partition 2) (mapv (partial some identity))))
+(defn collect-dw-id-row [max-dw-id]
+  (aggregatefn
+   ([] [])
+   ([acc & tuple] (conj acc (vec tuple)))
+   ([x] (vector {:rows (->> x
+                            (reduce (fn [[idx acc-t] [dw-id & t]]
+                                      [(cond-> idx (nil? dw-id) inc) (conj acc-t (vec (cons (or dw-id (inc idx)) t)))])
+                                    [max-dw-id []])
+                            second)}))))
+
+(defmapcatfn split-rows [x] (if (:rows x) (:rows x) x))
 
 (defn -main []
-  (def stg-tap-in (pg-tap "dw" "stg.d_bolome_product_category" ["barcode" "product-name" "category-1" "category-2"]))
-  (def ods-tap-out (pg-tap "dw" "ods.d_bolome_product_category" ["dw-dt" "dw-ts" "dw-id" "barcode" "product-name" "category-1" "category-2"]))
-  (def ods-tmp-tap-out (pg-tap "dw" "d_bolome_product_category_ods" ["dw-dt" "dw-ts" "dw-id" "barcode" "product-name" "category-1" "category-2"]))
+  (as-> (<- [?dw-src-id ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?barcode ?product-name ?category-1 ?category-2]
+            ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/stg.db/d_bolome_product_category" :skip-header? true :delimiter ",")
+             :> ?barcode ?product-name ?category-1 ?category-2)
+            (identity ?barcode :> ?dw-src-id)
+            (identity (latest-ts) :> ?dw-first-ts)
+            (subs ?dw-first-ts 0 10 :> ?dw-first-dt )
+            (identity (latest-ts) :> ?dw-latest-ts)
+            (subs ?dw-latest-ts 0 10 :> ?dw-latest-dt))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/dd_bolome_product_category"
+                       :outfields ["?dw-src-id" "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?barcode" "?product-name" "?category-1" "?category-2"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
 
-  (create-table-if ods-tap-out
-                   [[:dw_dt "CHAR(10)"]
-                    [:dw_ts "CHAR(24)"]
-                    [:dw_id :INT]
-                    [:barcode :TEXT]
-                    [:product_name :TEXT]
-                    [:category_1 :TEXT]
-                    [:category_2 :TEXT]] )
-  (create-table-if ods-tmp-tap-out
-                   [[:dw_dt "CHAR(10)"]
-                    [:dw_ts "CHAR(24)"]
-                    [:dw_id :INT]
-                    [:barcode :TEXT]
-                    [:product_name :TEXT]
-                    [:category_1 :TEXT]
-                    [:category_2 :TEXT]])
-  
-  (prn {:dt-rng (save-and-load-rng-dt! stg-tap-in :latest identity)} "running...")
-  (try (?- ods-tmp-tap-out (merge-stg-ods-tmp stg-tap-in ods-tap-out)) (catch Exception _))
-  (replace-into-ods ods-tap-out ods-tmp-tap-out)
-  )
+  (defn latest-max-dw-id [] (-> (??<- [?max-dw-id]
+                                      ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_product_category" :delimiter "\001")
+                                       :#> 9 {0 ?dw-id})
+                                      (c/max ?dw-id :> ?max-dw-id))
+                                ffirst (or 0)))
+  (as-> (<- [?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?barcode ?product-name ?category-1 ?category-2]
+              ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/dd_bolome_product_category" :delimiter "\001")
+               :> ?j-dw-src-id
+               !!src-dw-first-dt !!src-dw-first-ts !!src-dw-latest-dt !!src-dw-latest-ts
+               !!src-barcode !!src-product-name !!src-category-1 !!src-category-2)
+              ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_product_category" :delimiter "\001")
+               :> !!tgt-dw-id ?j-dw-src-id
+               !!tgt-dw-first-dt !!tgt-dw-first-ts !!tgt-dw-latest-dt !!tgt-dw-latest-ts
+               !!tgt-barcode !!tgt-product-name !!tgt-category-1 !!tgt-category-2)
+              (or-t nil !!tgt-dw-id
+                    !!tgt-dw-first-dt !!src-dw-first-dt !!tgt-dw-first-ts !!src-dw-first-ts
+                    !!tgt-dw-latest-dt !!src-dw-latest-dt !!tgt-dw-latest-ts !!src-dw-latest-ts
+                    !!src-barcode !!tgt-barcode !!src-product-name !!tgt-product-name !!src-category-1 !!tgt-category-1 !!src-category-2 !!tgt-category-2
+                    :> !mg-dw-id
+                    ?mg-dw-first-dt ?mg-dw-first-ts ?mg-dw-latest-dt ?mg-dw-latest-ts
+                    ?mg-barcode ?mg-product-name ?mg-category-1 ?mg-category-2)
+              ((collect-dw-id-row (latest-max-dw-id)) !mg-dw-id ?j-dw-src-id
+                 ?mg-dw-first-dt ?mg-dw-first-ts ?mg-dw-latest-dt ?mg-dw-latest-ts
+                 ?mg-barcode ?mg-product-name ?mg-category-1 ?mg-category-2
+                 :> ?dw-id-rows)
+              (split-rows ?dw-id-rows
+                            :> ?dw-id ?dw-src-id
+                            ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+                            ?barcode ?product-name ?category-1 ?category-2))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/ds_bolome_product_category"
+                       :outfields ["?dw-id" "?dw-src-id" "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?barcode" "?product-name" "?category-1" "?category-2"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
 
-(comment
-  (-main)
+  (as-> (<- [?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?barcode ?product-name ?category-1 ?category-2]
+            ((hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/ds_bolome_product_category" :delimiter "\001")
+             :> ?dw-id ?dw-src-id
+             ?dw-first-dt ?dw-first-ts ?dw-latest-dt ?dw-latest-ts
+             ?barcode ?product-name ?category-1 ?category-2))
+      $
+    (?- (hfs-delimited "hdfs://192.168.1.3:9000/user/hive/warehouse/ods.db/d_bolome_product_category"
+                       :outfields ["?dw-id" "?dw-src-id"
+                                   "?dw-first-dt" "?dw-first-ts" "?dw-latest-dt" "?dw-latest-ts"
+                                   "?barcode" "?product-name" "?category-1" "?category-2"]
+                       :delimiter "\001"
+                       :quote ""
+                       :sinkmode :replace
+                       :compression  :enable) $))
   )
