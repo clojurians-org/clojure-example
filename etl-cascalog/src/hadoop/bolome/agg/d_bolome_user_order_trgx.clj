@@ -104,5 +104,6 @@
                          :delimiter "\001"
                          :quote ""
                          :sinkmode :replace
-                         :compression  :enable) $)))
+                         ;:compression  :enable
+                         ) $)))
   )
