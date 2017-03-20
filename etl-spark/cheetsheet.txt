@@ -1,0 +1,3 @@
+spark-submit --name larluo --master yarn-client \
+    --num-executors 8 \
+    --class powderkeg.repl target/etl-spark-0.1.0-SNAPSHOT-standalone.jar etl-spark.core/-main
