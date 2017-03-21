@@ -1,10 +1,14 @@
-(ns etl-spark.core
+(ns bolome.mlin.d_bolome_user_order
   (:require [powderkeg.core :as keg]
             [net.cgrand.xforms :as x]
             [clj-time.core :as t :refer [last-day-of-the-month-]]
             [clj-time.format :as tf]
             [clj-time.local :as tl]
-            [clj-time.periodic :refer [periodic-seq]]))
+            [clj-time.periodic :refer [periodic-seq]])
+  (:import [org.apache.spark.sql SparkSession]
+           [org.apache.spark.sql.types StringType StructField StructType]
+           [org.apache.spark.sql.types DataTypes]
+           [org.apache.spark.sql Row SaveMode RowFactory]))
 
 (defn parse-dt [dt] (tf/parse (tf/formatter "yyyy-MM-dd") dt))
 (defn unparse-dt [dt-obj] (tf/unparse (tf/formatter "yyyy-MM-dd") dt-obj))
@@ -54,41 +58,28 @@
 (defn process-y-cut [[y-start-dt y-end-dt :as y-cut] extractor trgx]
   {:cut y-cut :label (-> trgx (tree-nodes [:CHILDREN [:range y-start-dt y-end-dt]]) index-boolean)})
 
-(defn parse-exprs [exprs data]
-  (reduce (fn [m [var [xfn & params]]]
-            (assoc m var (str (apply xfn (map #(-> m % Double/parseDouble) params)))))
-          data exprs))
-
-(defn process-x-cut [[x-start-dt x-end-dt :as x-cut] {:keys [exprs order-item-fields product-ids product-item-fields product-group-var product-group-item-fields] :as extractor} trgx]
+(defn process-x-cut [[x-start-dt x-end-dt :as x-cut] {:keys [order-item-fields product-ids product-item-fields product-group-var product-group-item-fields] :as extractor} trgx]
   {:cut x-cut
    :label (-> trgx (tree-nodes [:CHILDREN [:range x-start-dt x-end-dt]]) index-boolean)
    :order-cnt (-> trgx (tree-nodes [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :DATA :order-dw-src-id]) distinct count)
-   :order-items (let [order-item-data (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :DATA])
-                      order-item-data-ext (mapv (partial parse-exprs exprs) order-item-data)
-                      order-item-data-numeric (mapv #(->> order-item-fields (mapv (fn [f] [f (->> % f Double/parseDouble)])) (into {})) order-item-data-ext)]
-                  (if (seq order-item-data-numeric)
-                    (apply merge-with + order-item-data-numeric)
+   :order-items (let [order-item-data (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :DATA])]
+                  (if (seq order-item-data)
+                    (apply merge-with + order-item-data)
                     (zipmap order-item-fields (repeat 0.0))))
    :products (->> product-ids
                   (map (fn [product-id]
                          (let [product-item-data (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt]
-                                                                   :CHILDREN product-id :CHILDREN "*" :CHILDREN "*" :DATA])
-                               product-item-data-ext (mapv (partial parse-exprs exprs) product-item-data)
-                               product-item-data-numeric (mapv #(->> product-item-fields (mapv (fn [f] [f (->> % f Double/parseDouble)])) (into {}))
-                                                               product-item-data-ext)]
-                           [product-id (if (seq product-item-data-numeric)
-                                         (apply merge-with + product-item-data-numeric)
+                                                                   :CHILDREN product-id :CHILDREN "*" :CHILDREN "*" :DATA])]
+                           [product-id (if (seq product-item-data)
+                                         (apply merge-with + product-item-data)
                                          (zipmap product-item-fields (repeat 0.0)))])))
                   (into {}))
    :product-groups (->> (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*"])
                         (map (fn [product-node]
                                (let [product-group-id (first (tree-nodes product-node [:DATA product-group-var]))
-                                     product-group-item-data (tree-nodes product-node [:CHILDREN "*" :CHILDREN "*" :DATA])
-                                     product-group-item-data-ext (mapv (partial parse-exprs exprs) product-group-item-data)
-                                     product-group-item-data-numeric (mapv #(->> product-group-item-fields (mapv (fn [f] [f (->> % f Double/parseDouble)])) (into {}))
-                                                                           product-group-item-data-ext)]
-                                 {product-group-id (if (seq product-group-item-data-numeric)
-                                                     (apply merge-with + product-group-item-data-numeric)
+                                     product-group-item-data (tree-nodes product-node [:CHILDREN "*" :CHILDREN "*" :DATA])]
+                                 {product-group-id (if (seq product-group-item-data)
+                                                     (apply merge-with + product-group-item-data)
                                                      (zipmap product-group-item-fields (repeat 0.0)))})))
                         (apply merge-with (partial merge-with +)))})
 
@@ -104,31 +95,41 @@
 
 (defn -main []
   (def kind-shift (build-kind-shift ["2015-07-01" "2016-06-30"] ["2016-08-01" "2016-10-01"]  30 3 #{3 6 13 20 27 59 29}))
-  (-> (keg/rdd (.textFile keg/*sc* "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx")
-                 (map #(clojure.string/split % #"\001" 2))
-                 (mapcat (fn [[user-id user-trgx]]
+  (def ss (->> keg/*sc* .sc (new SparkSession)))
+  (as-> (keg/rdd (-> ss .read (.load "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx") .rdd)
+               (map #(mapv (fn [idx] (.get % idx)) (-> % .length range)))
+               (mapcat (fn [[user-id user-trgx]]
                            (let [user-shift-tkvs (kind-shift-cut-trgx
                                                   kind-shift
-                                                  {:exprs (array-map :order-item-revenue [* :order-item-quantity :order-item-price]
-                                                   :order-item-base-revenue [+ :order-item-revenue :order-item-tax-amount :order-item-logistics-amount]
-                                                   :order-item-discount-amount [+ :order-item-system-discount-amount :order-item-logistics-amount])
-                                                   :order-item-fields [:order-item-revenue :order-item-base-revenue :order-item-discount-amount]
-                                                   #_[:order-coupon :order-ste :order-pe :order-debut :order-replay]
+                                                  {:order-item-fields [:order-item-revenue :order-item-base-revenue :order-item-discount-amount
+                                                                       :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
                                                    :product-ids #{1125 1126}
-                                                   :product-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount]
+                                                   :product-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount
+                                                                         :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
                                                    #_[:order-coupon :order-ste :order-pe :order-debut :order-replay]
                                                    :product-group-var :product-category-1-dw-id
                                                    :product-group-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount]}
                                                   (clojure.edn/read-string user-trgx))]
-                             (mapv (partial vector user-id) user-shift-tkvs)) )))
-      (.saveAsTextFile "hdfs://192.168.1.3:9000/user/hive/warehouse/ml_in.db/d_bolome_user_order_test")
-      )
+                             (mapv #(RowFactory/create (into-array [(:dm-ds-kind %)  user-id (pr-str %)])) user-shift-tkvs)) )))
+      $
+    (.createDataFrame ss $
+                      (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["p_ds" "user-id" "user-tkvs"])))
+    (.write $)
+    (.partitionBy $ (into-array ["p_ds"]))
+    (.format $ "parquet")
+    (.mode $ SaveMode/Overwrite)
+    (.save $ "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/agg.db/larluo"))
+
+  (System/exit 0)
   )
 
 
 (comment
   (keg/connect! "local")
-  keg/*sc*
-  
+  (def ss (->> keg/*sc* .sc (new SparkSession)))
+  (def test
+    (into [] (keg/rdd (-> ss .read (.load "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx") .rdd)
+                      (map #(mapv (fn [idx] (.get % idx)) (-> % .length range)))
+                      (take 1))))
+  (count test)
   )
-
