@@ -62,14 +62,18 @@
   {:cut x-cut
    :label (-> trgx (tree-nodes [:CHILDREN [:range x-start-dt x-end-dt]]) index-boolean)
    :order-cnt (-> trgx (tree-nodes [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :DATA :order-dw-src-id]) distinct count)
-   :order-items (let [order-item-data (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :DATA])]
+   :order-items (let [order-item-data (->> 
+                                          (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :DATA])
+                                          (map  #(select-keys % order-item-fields)))]
                   (if (seq order-item-data)
                     (apply merge-with + order-item-data)
                     (zipmap order-item-fields (repeat 0.0))))
    :products (->> product-ids
                   (map (fn [product-id]
-                         (let [product-item-data (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt]
-                                                                   :CHILDREN product-id :CHILDREN "*" :CHILDREN "*" :DATA])]
+                         (let [product-item-data (->> 
+                                                     (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt]
+                                                                       :CHILDREN product-id :CHILDREN "*" :CHILDREN "*" :DATA])
+                                                     (map #(select-keys % product-item-fields)) ) ]
                            [product-id (if (seq product-item-data)
                                          (apply merge-with + product-item-data)
                                          (zipmap product-item-fields (repeat 0.0)))])))
@@ -77,7 +81,9 @@
    :product-groups (->> (tree-nodes trgx [:CHILDREN [:range x-start-dt x-end-dt] :CHILDREN "*"])
                         (map (fn [product-node]
                                (let [product-group-id (first (tree-nodes product-node [:DATA product-group-var]))
-                                     product-group-item-data (tree-nodes product-node [:CHILDREN "*" :CHILDREN "*" :DATA])]
+                                     product-group-item-data (->> 
+                                                                 (tree-nodes product-node [:CHILDREN "*" :CHILDREN "*" :DATA])
+                                                                 (map #(select-keys % product-group-item-fields) )) ]
                                  {product-group-id (if (seq product-group-item-data)
                                                      (apply merge-with + product-group-item-data)
                                                      (zipmap product-group-item-fields (repeat 0.0)))})))
@@ -96,29 +102,29 @@
 (defn -main []
   (def kind-shift (build-kind-shift ["2015-07-01" "2016-06-30"] ["2016-08-01" "2016-10-01"]  30 3 #{3 6 13 20 27 59 29}))
   (def ss (->> keg/*sc* .sc (new SparkSession)))
-  (as-> (keg/rdd (-> ss .read (.load "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx") .rdd)
+  (as-> (keg/rdd (-> ss .read (.load "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx") (.repartition 8) .rdd)
                (map #(mapv (fn [idx] (.get % idx)) (-> % .length range)))
-               (mapcat (fn [[user-id user-trgx]]
-                           (let [user-shift-tkvs (kind-shift-cut-trgx
+               (mapcat (fn [[user-id-trgx-str]]
+                         (let [[user-id user-trgx] (clojure.edn/read-string user-id-trgx-str)
+                               user-shift-tkvs (kind-shift-cut-trgx
                                                   kind-shift
                                                   {:order-item-fields [:order-item-revenue :order-item-base-revenue :order-item-discount-amount
                                                                        :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
                                                    :product-ids #{1125 1126}
                                                    :product-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount
                                                                          :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
-                                                   #_[:order-coupon :order-ste :order-pe :order-debut :order-replay]
                                                    :product-group-var :product-category-1-dw-id
                                                    :product-group-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount]}
-                                                  (clojure.edn/read-string user-trgx))]
-                             (mapv #(RowFactory/create (into-array [(:dm-ds-kind %)  user-id (pr-str %)])) user-shift-tkvs)) )))
+                                                  user-trgx)]
+                             (mapv #(RowFactory/create (into-array [(:dm-ds-kind %)  (pr-str [user-id %])])) user-shift-tkvs)) )))
       $
     (.createDataFrame ss $
-                      (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["p_ds" "user-id" "user-tkvs"])))
+                      (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["p_ds" "user-id-tkv"])))
     (.write $)
     (.partitionBy $ (into-array ["p_ds"]))
     (.format $ "parquet")
     (.mode $ SaveMode/Overwrite)
-    (.save $ "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/agg.db/larluo"))
+    (.save $ "hdfs://192.168.1.3:9000/user/hive/warehouse/mlin.db/d_bolome_user_order"))
 
   (System/exit 0)
   )
@@ -126,10 +132,19 @@
 
 (comment
   (keg/connect! "local")
-  (def ss (->> keg/*sc* .sc (new SparkSession)))
-  (def test
-    (into [] (keg/rdd (-> ss .read (.load "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx") .rdd)
-                      (map #(mapv (fn [idx] (.get % idx)) (-> % .length range)))
-                      (take 1))))
-  (count test)
+
+  (kind-shift-cut-trgx
+   kind-shift
+   {:order-item-fields [:order-item-revenue :order-item-base-revenue :order-item-discount-amount
+                        :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
+    :product-ids #{1125 1126}
+    :product-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount
+                          :order-item-coupon-cnt :order-item-event-pe-cnt :order-item-event-ste-cnt :order-item-event-pe-cnt]
+    :product-group-var :product-category-1-dw-id
+    :product-group-item-fields [:order-item-quantity :order-item-revenue :order-item-base-revenue :order-item-discount-amount]
+    }
+   (clojure.edn/read-string (-> data first second)))
+  (tree-nodes (-> data first second clojure.edn/read-string) [:CHILDREN [:range "1970-01-01" "9999-12-31"] :CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :DATA])
+  (merge-with + {:a 0 :b 0.1} {:a 0 :b 0.1})
   )
+

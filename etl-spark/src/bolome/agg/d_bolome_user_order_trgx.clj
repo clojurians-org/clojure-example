@@ -140,16 +140,16 @@
                  #_(.textFile keg/*sc* "/home/spiderdt/work/git/larluo/user/hive/warehouse/agg.db/d_bolome_user_order_test")
                  (map #(clojure.string/split % #"\001" 2))
                  (map (fn [[user-id user-tkvs]]
-                        (->> [user-id
-                              (->> user-tkvs
-                                   (realize-trgx (latest-schema))
-                                   (derive-exprs (latest-exprs))
-                                   pr-str)]
+                        (->> [(pr-str [user-id
+                                       (->> user-tkvs
+                                            (realize-trgx (latest-schema))
+                                            (derive-exprs (latest-exprs))
+                                            )])]
                              into-array
                              RowFactory/create))) )
       $
     (.createDataFrame (->> keg/*sc* .sc (new SparkSession)) $
-                      (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["user-id" "user-trgx"])))
+                      (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["user-id-trgx"])))
     (.write $)
     (.format $ "parquet")
     (.mode $ SaveMode/Overwrite)
@@ -161,6 +161,7 @@
 
 (comment
   (keg/connect! "local")
+  (keg/*sc*)
   (def user-tkvs
     (-> (into [] (keg/rdd (.textFile keg/*sc* "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order")
                           (take 1)
