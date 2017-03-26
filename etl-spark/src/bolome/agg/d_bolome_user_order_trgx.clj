@@ -28,7 +28,7 @@
 
 (defn latest-tab-trgx []
   {:dp_bolome_order
-   {:DATA {:fields [:order-dw-dt :order-dw-ts :order-dw-src-id
+   {:DATA {:fields [:dw-dt :dw-ts :dw-src-id
                     :product-dw-id :product-dw-src-id
                     :show-dw-id :show-dw-src-id
                     :preview-show-dw-id :preview-show-dw-src-id
@@ -37,7 +37,7 @@
                     :order-item-quantity :order-item-price :order-item-warehouse-id :coupon-id :event-dw-src-id
                     :coupon-discount-amount :order-item-system-discount-amount :order-item-tax-amount :order-item-logistics-amount]
            :repartition 8}
-    :BRANCHS {:product  {:d_bolome_product_category
+    :BRANCHS {:product {:d_bolome_product_category
                          {:DATA {:fields [:dw-id :dw-src-id
                                           :dw-first-dt :dw-first-ts :dw-latest-dt :dw-latest-ts
                                           :product-category-1-dw-id :product-category-1-dw-src-id :product-category-2-dw-id :product-category-2-dw-src-id
@@ -65,58 +65,59 @@
                              :BRANCHS {}}}}}})
 
 (defn latest-schema []
-  {:DATA {:user-id ["user-id" :STRING]}
-   :CHILDREN {["dw-dt" :STRING]
-              {:DATA {:dw-dt ["dw-dt" :STRING]}
-               :CHILDREN {["product-dw-id" :STRING]
-                          {:DATA {:product-dw-id ["product-dw-id" :INT]
-                                  :product-dw-src-id ["product-dw-src-id" :STRING]
-                                  :product-category-1-dw-id ["product-category-1-dw-id" :INT]
-                                  :product-category-1-dw-src-id ["product-category-1-dw-src-id" :STRING]
-                                  :product-category-2-dw-id ["product-category-2-dw-id" :INT]
-                                  :product-category-2-dw-src-id ["product-category-2-dw-src-id" :STRING]
-                                  :product-product-name ["product-product-name" :STRING]}
-                           :CHILDREN {["order-dw-src-id" :STRING]
-                                      {:DATA {:order-dw-src-id ["order-dw-src-id" :STRING]
-                                              :order-dw-dt ["order-dw-dt" :STRING]}
-                                       :CHILDREN {["order-item-id" :STRING]
-                                                  {:DATA {:order-item-id ["order-item-id" :STRING]
-                                                          :order-item-quantity ["order-item-quantity" :INT]
-                                                          :order-item-price ["order-item-price" :DOUBLE]
-                                                          :order-item-warehouse-id ["order-item-warehouse-id" :STRING]
-                                                          :order-item-system-discount-amount ["order-item-system-discount-amount" :DOUBLE]
-                                                          :order-item-tax-amount ["order-item-tax-amount" :DOUBLE]
-                                                          :order-item-logistics-amount ["order-item-logistics-amount" :DOUBLE]}
-                                                   :BRANCH {:coupon {["coupon-id" :STRING]
-                                                                     {:DATA {:coupon-id ["coupon-id" :STRING]
-                                                                             :coupon-discount-amount ["coupon-discount-amount" :DOUBLE]}
-                                                                      :CHILDREN {}}}
-                                                            :event {["event-dw-src-id" :STRING]
-                                                                    {:DATA {:event-dw-src-id ["event-dw-src-id" :STRING]
-                                                                            :event-type-name ["event-type-name" :STRING]
-                                                                            :event-event-name ["event-event-name" :STRING]}
-                                                                     :CHILDREN {}}}
-                                                            :show {["show-dw-id" :STRING]
-                                                                   {:DATA {:show-dw-id ["show-dw-id" :INT]
-                                                                           :show-dw-src-id ["show-dw-src-id" :STRING]
-                                                                           :show-show-name ["show-show-name" :STRING]
-                                                                           :show-begin-ts ["show-begin-ts" :STRING]
-                                                                           :show-end-ts ["show-end-ts" :STRING]}
-                                                                    :CHILDREN {}}}
-                                                            :preview-show {["preview-show-dw-id" :INT]
-                                                                           {:DATA {:preview-show-dw-id ["preview-show-dw-id" :INT]
-                                                                                   :preview-show-dw-src-id ["preview-show-dw-src-id" :STRING]
-                                                                                   :preview-show-show-name ["preview-show-show-name" :STRING]
-                                                                                   :preview-show-begin-ts ["preview-show-begin-ts" :STRING]
-                                                                                   :preview-show-end-ts ["preview-show-end-ts" :STRING]}
-                                                                            :CHILDREN {}}}
-                                                            :replay-show {["replay-show-dw-id" :INT]
-                                                                          {:DATA {:replay-show-dw-id ["replay-show-dw-id" :INT]
-                                                                                  :replay-show-dw-src-id ["replay-show-dw-src-id" :STRING]
-                                                                                  :replay-show-show-name ["replay-show-show-name" :STRING]
-                                                                                  :replay-show-begin-ts ["replay-show-begin-ts" :STRING]
-                                                                                  :replay-show-end-ts ["replay-show-end-ts" :STRING]}
-                                                                           :CHILDREN {}}}}}}}}}}}}})
+  {["user-id" :STRING]
+   {:DATA {:user-id ["user-id" :STRING]}
+       :CHILDREN {["dw-dt" :STRING]
+                  {:DATA {:dw-dt ["dw-dt" :STRING]}
+                   :CHILDREN {["product-dw-id" :STRING]
+                              {:DATA {:product-dw-id ["product-dw-id" :INT]
+                                      :product-dw-src-id ["product-dw-src-id" :STRING]
+                                      :product-category-1-dw-id ["product-category-1-dw-id" :INT]
+                                      :product-category-1-dw-src-id ["product-category-1-dw-src-id" :STRING]
+                                      :product-category-2-dw-id ["product-category-2-dw-id" :INT]
+                                      :product-category-2-dw-src-id ["product-category-2-dw-src-id" :STRING]
+                                      :product-product-name ["product-product-name" :STRING]}
+                               :CHILDREN {["dw-src-id" :STRING]
+                                          {:DATA {:order-dw-src-id ["dw-src-id" :STRING]
+                                                  :order-dw-dt ["dw-dt" :STRING]}
+                                           :CHILDREN {["product-dw-id" :STRING]
+                                                      {:DATA {:order-item-id ["product-dw-id" :STRING]
+                                                              :order-item-quantity ["order-item-quantity" :INT]
+                                                              :order-item-price ["order-item-price" :DOUBLE]
+                                                              :order-item-warehouse-id ["order-item-warehouse-id" :STRING]
+                                                              :order-item-system-discount-amount ["order-item-system-discount-amount" :DOUBLE]
+                                                              :order-item-tax-amount ["order-item-tax-amount" :DOUBLE]
+                                                              :order-item-logistics-amount ["order-item-logistics-amount" :DOUBLE]}
+                                                       :BRANCH {:coupon {["coupon-id" :STRING]
+                                                                         {:DATA {:coupon-id ["coupon-id" :STRING]
+                                                                                 :coupon-discount-amount ["coupon-discount-amount" :DOUBLE]}
+                                                                          :CHILDREN {}}}
+                                                                :event {["event-dw-src-id" :STRING]
+                                                                        {:DATA {:event-dw-src-id ["event-dw-src-id" :STRING]
+                                                                                :event-type-name ["event-type-name" :STRING]
+                                                                                :event-event-name ["event-event-name" :STRING]}
+                                                                         :CHILDREN {}}}
+                                                                :show {["show-dw-id" :STRING]
+                                                                       {:DATA {:show-dw-id ["show-dw-id" :INT]
+                                                                               :show-dw-src-id ["show-dw-src-id" :STRING]
+                                                                               :show-show-name ["show-show-name" :STRING]
+                                                                               :show-begin-ts ["show-begin-ts" :STRING]
+                                                                               :show-end-ts ["show-end-ts" :STRING]}
+                                                                        :CHILDREN {}}}
+                                                                :preview-show {["preview-show-dw-id" :INT]
+                                                                               {:DATA {:preview-show-dw-id ["preview-show-dw-id" :INT]
+                                                                                       :preview-show-dw-src-id ["preview-show-dw-src-id" :STRING]
+                                                                                       :preview-show-show-name ["preview-show-show-name" :STRING]
+                                                                                       :preview-show-begin-ts ["preview-show-begin-ts" :STRING]
+                                                                                       :preview-show-end-ts ["preview-show-end-ts" :STRING]}
+                                                                                :CHILDREN {}}}
+                                                                :replay-show {["replay-show-dw-id" :INT]
+                                                                              {:DATA {:replay-show-dw-id ["replay-show-dw-id" :INT]
+                                                                                      :replay-show-dw-src-id ["replay-show-dw-src-id" :STRING]
+                                                                                      :replay-show-show-name ["replay-show-show-name" :STRING]
+                                                                                      :replay-show-begin-ts ["replay-show-begin-ts" :STRING]
+                                                                                      :replay-show-end-ts ["replay-show-end-ts" :STRING]}
+                                                                               :CHILDREN {}}}}}}}}}}}}}})
 
 (defn index-boolean [b] (cond (and (sequential? b) (empty? b)) 0 b 1 :else 0))
 (defn latest-exprs []
@@ -139,7 +140,7 @@
                                           (mapcat #(clojure.string/split % #"\n")))
                                  (.textFile keg/*sc* (str hive-path "/" (name node-name))))
                        (map #(clojure.string/split % #"\001"))
-                       #_ (take 2)
+                       #_(take 2)
                        (when repartition [:partitions repartition]))))]))
 
 (defn rdd-join [rdd-1 rdd-2 rdd-fs-cnt]
@@ -160,7 +161,7 @@
         jfs (->> (apply clojure.set/intersection (map set [node-1-fields (remove #(= (prefix-branch-field branch-name :dw-src-id) %) branch-node-2-fields)])))
         key-rdd-1 (keg/rdd rdd-1 (map #(vector (->> jfs (mapv (fn [jf] (.indexOf node-1-fields jf))) (mapv %)) %)))
         key-rdd-2 (keg/rdd rdd-2 (map #(vector (->> jfs (mapv (fn [jf] (.indexOf branch-node-2-fields jf))) (mapv %)) %)))
-        acc-rdd-1 (rdd-join key-rdd-1 key-rdd-2 (count rdd-2-columns))]
+        acc-rdd-1 (rdd-join key-rdd-1 key-rdd-2 (+  (count node-2-fields) (count rdd-2-columns)))]
     [node-1-name (assoc node-1-val :RESULT acc-rdd-1 :BRANCH-FIELDS (concat rdd-1-columns branch-node-2-fields rdd-2-columns))]))
 
 (defn- inner-trgx-join [tab-trgx]
@@ -174,28 +175,6 @@
 (defn trgx-join [tab-trgx]
   (let [{{fields :fields} :DATA rdd :RESULT branch-fields :BRANCH-FIELDS} (->> tab-trgx inner-trgx-join second)]
     {:rdd rdd :fields (concat fields branch-fields)}))
-
-(def collect
-  (fn ([] nil)
-    ([acc x] (if (sequential? x) (concat acc x) (conj acc x)))
-    ([x] (vec x))))
-
-(defn deep-merge [& vals]  (if (every? map? vals)  (apply merge-with deep-merge vals)  (last vals)))
-(defn realize-trgx [schema tkvs]
-  (->> tkvs
-       clojure.edn/read-string
-       (map #(clojure.walk/prewalk (fn [node]
-                                     (if (and (vector? node) (#{:INT :STRING :DOUBLE} (second node)) ) 
-                                       (let [[field xtype] node
-                                             field-val (-> field keyword %)]
-                                         (cond
-                                           (nil? field-val) nil
-                                           (#{"NULL" "null"} field-val) nil
-                                           (= xtype :INT) (Integer/parseInt field-val)
-                                           (= xtype :DOUBLE) (Double/parseDouble field-val)
-                                           :else field-val))
-                                       node))  schema))
-       (apply deep-merge))  )
 
 (defn sort? [& coll] (= (sort coll) coll))
 (defn tree-map [edn filters xfn]
@@ -218,27 +197,35 @@
                            (assoc-in node [:DATA var] (apply xfn node params)))
                          % exprs))) )
 
+(defn deep-merge [vals]  (if (every? map? vals)  (apply merge-with deep-merge vals)  (last vals)))
+(defn collect-trgx [fields schema]
+  (fn ([] nil)
+    ([acc x] (if (map? x) (concat acc x)
+                 (conj acc (as-> (zipmap (reverse fields) (reverse x)) $
+                             (clojure.walk/prewalk
+                              (fn [node]
+                                (if (and (vector? node) (#{:INT :STRING :DOUBLE} (second node)) ) 
+                                  (let [[field xtype] node
+                                        field-val (-> field keyword $)]
+                                    (cond
+                                      (nil? field-val) nil
+                                      (#{"NULL" "null" ""} field-val) nil
+                                      (= xtype :INT) (Integer/parseInt field-val)
+                                      (= xtype :DOUBLE) (Double/parseDouble field-val)
+                                      :else field-val))
+                                  node))
+                              schema)) )))
+    ([x] (deep-merge x))))
+
 (defn -main []
   (let [{:keys [rdd fields]} (trgx-join (first (latest-tab-trgx)))]
-    (as-> (keg/rdd rdd
-                   (map #(vector (nth % (.indexOf fields :user-id)) %)))
-        $
-      (keg/by-key $
-                  (x/reduce collect))
-      (keg/rdd $
-               (map (fn [[user-id user-tps]]
-                      (->> [user-id
-                            (->> user-tps
-                                 (zipmap fields)
-                                 (realize-trgx (latest-schema))
-                                 (derive-exprs (latest-exprs)))]
-                           pr-str
-                           vector
-                           into-array
-                           RowFactory/create))))
-
+    (as-> (keg/rdd rdd (map #(vector (nth % (.indexOf fields :user-id)) %))) $
+      (keg/by-key $ (x/reduce (collect-trgx fields (latest-schema))))
+      (keg/rdd $ (map (fn [[_ [user-id user-trgx]]]
+                        (->> [user-id (derive-exprs (latest-exprs) user-trgx)]
+                             pr-str  vector into-array RowFactory/create))))
       (.createDataFrame (->> keg/*sc* .sc (new SparkSession)) $
-                        (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["user-id-tkvs"])))
+                        (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["user-id-trgx"])))
       (.write $)
       (.format $ "parquet")
       (.mode $ SaveMode/Overwrite)
@@ -246,7 +233,6 @@
   
   (System/exit 0)
   )
-
 
 (comment
   (keg/connect! "local")
