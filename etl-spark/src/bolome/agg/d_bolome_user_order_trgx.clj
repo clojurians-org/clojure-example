@@ -36,11 +36,11 @@
                     :pay-dt :user-id :order-id
                     :order-item-quantity :order-item-price :order-item-warehouse-id :coupon-id :event-dw-src-id
                     :coupon-discount-amount :order-item-system-discount-amount :order-item-tax-amount :order-item-logistics-amount]
-           :repartition 8}
+           :repartition 16}
     :BRANCHS {:product {:d_bolome_product_category
                          {:DATA {:fields [:dw-id :dw-src-id
                                           :dw-first-dt :dw-first-ts :dw-latest-dt :dw-latest-ts
-                                          :product-category-1-dw-id :product-category-1-dw-src-id :product-category-2-dw-id :product-category-2-dw-src-id
+                                          :category-1-dw-id :category-1-dw-src-id :category-2-dw-id :category-2-dw-src-id
                                           :barcode :product-name]}
                           :BRANCHS {}}}
               :event {:d_bolome_event
@@ -140,18 +140,18 @@
                                           (mapcat #(clojure.string/split % #"\n")))
                                  (.textFile keg/*sc* (str hive-path "/" (name node-name))))
                        (map #(clojure.string/split % #"\001"))
-                       #_(take 2)
+                       #_(take 20000)
                        (when repartition [:partitions repartition]))))]))
 
 (defn rdd-join [rdd-1 rdd-2 rdd-fs-cnt]
-  #_ (-> (.leftOuterJoin (JavaPairRDD/fromJavaRDD rdd-1) (JavaPairRDD/fromJavaRDD rdd-2))
+  #_(-> (.leftOuterJoin (JavaPairRDD/fromJavaRDD rdd-1) (JavaPairRDD/fromJavaRDD rdd-2))
          (keg/rdd (map (fn [[_ tuple-2]]
                          (let [[fs-1 fs-2] [(._1 tuple-2) (-> tuple-2 ._2 .orNull)]]
                            (vec (concat fs-1 (or fs-2 (repeat rdd-fs-cnt nil)))))))))
   (let [rdd-2-map (into {} rdd-2)]
     (keg/rdd rdd-1
              (map (fn [[jfs fs-1]]
-                    (vec (concat fs-1 (get rdd-2-map fs-1 (repeat rdd-fs-cnt nil)))))))))
+                    (vec (concat fs-1 (get rdd-2-map jfs (repeat rdd-fs-cnt nil)))))))))
 
 (defn node-join [[node-1-name {{node-1-fields :fields} :DATA rdd-1 :RESULT rdd-1-columns :BRANCH-FIELDS :as node-1-val} :as node-1]
                  branch-name
@@ -190,14 +190,14 @@
            (into {})))
     (xfn edn)))
 
+(defn deep-merge [& vals]  (if (every? map? vals)  (apply merge-with deep-merge vals)  (last vals)))
 (defn derive-exprs [exprs trgx]
-  (-> trgx
-      (tree-map [:CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :CHILDREN "*"]
-                #(reduce (fn [node [var [xfn & params]]]
-                           (assoc-in node [:DATA var] (apply xfn node params)))
-                         % exprs))) )
+  (->> (tree-map trgx [:CHILDREN "*" :CHILDREN "*" :CHILDREN "*" :CHILDREN "*"]
+                 #(reduce (fn [node [var [xfn & params]]]
+                            (assoc-in node [:DATA var] (apply xfn node params)))
+                          % exprs)) 
+      (deep-merge trgx)) )
 
-(defn deep-merge [vals]  (if (every? map? vals)  (apply merge-with deep-merge vals)  (last vals)))
 (defn collect-trgx [fields schema]
   (fn ([] nil)
     ([acc x] (if (map? x) (concat acc x)
@@ -215,7 +215,7 @@
                                       :else field-val))
                                   node))
                               schema)) )))
-    ([x] (deep-merge x))))
+    ([x] (apply deep-merge x))))
 
 (defn -main []
   (let [{:keys [rdd fields]} (trgx-join (first (latest-tab-trgx)))]
@@ -223,14 +223,15 @@
       (keg/by-key $ (x/reduce (collect-trgx fields (latest-schema))))
       (keg/rdd $ (map (fn [[_ [user-id user-trgx]]]
                         (->> [user-id (derive-exprs (latest-exprs) user-trgx)]
-                             pr-str  vector into-array RowFactory/create))))
+                             pr-str  vector into-array RowFactory/create
+                             ))))
       (.createDataFrame (->> keg/*sc* .sc (new SparkSession)) $
                         (DataTypes/createStructType (map #(DataTypes/createStructField % DataTypes/StringType false) ["user-id-trgx"])))
       (.write $)
       (.format $ "parquet")
       (.mode $ SaveMode/Overwrite)
-      (.save $ "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order")))
-  
+      (.save $ "hdfs://192.168.1.3:9000/user/hive/warehouse/agg.db/d_bolome_user_order_trgx")))
+
   (System/exit 0)
   )
 
@@ -241,4 +242,6 @@
     (.set "spark.app.name" "d_bolome_user_order")
     (.set "spark.master" "yarn"))
   (.close keg/*sc*)
+  (def result *1)
+  
   )
