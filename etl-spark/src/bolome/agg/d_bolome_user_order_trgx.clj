@@ -140,7 +140,6 @@
                                           (mapcat #(clojure.string/split % #"\n")))
                                  (.textFile keg/*sc* (str hive-path "/" (name node-name))))
                        (map #(clojure.string/split % #"\001"))
-                       #_(take 20000)
                        (when repartition [:partitions repartition]))))]))
 
 (defn rdd-join [rdd-1 rdd-2 rdd-fs-cnt]
@@ -199,30 +198,34 @@
       (deep-merge trgx)) )
 
 (defn collect-trgx [fields schema]
-  (fn ([] nil)
-    ([acc x] (if (map? x) (concat acc x)
-                 (conj acc (as-> (zipmap (reverse fields) (reverse x)) $
-                             (clojure.walk/prewalk
-                              (fn [node]
-                                (if (and (vector? node) (#{:INT :STRING :DOUBLE} (second node)) ) 
-                                  (let [[field xtype] node
-                                        field-val (-> field keyword $)]
-                                    (cond
-                                      (nil? field-val) nil
-                                      (#{"NULL" "null" ""} field-val) nil
-                                      (= xtype :INT) (Integer/parseInt field-val)
-                                      (= xtype :DOUBLE) (Double/parseDouble field-val)
-                                      :else field-val))
-                                  node))
-                              schema)) )))
-    ([x] (apply deep-merge x))))
+  (fn ([] {})
+    ([acc x] (if (map? x) (deep-merge acc x)
+                 (deep-merge acc (as-> (zipmap (reverse fields) (reverse x))  $
+                                   (clojure.walk/prewalk
+                                    (fn [node]
+                                      (if (and (vector? node) (#{:INT :STRING :DOUBLE} (second node)) ) 
+                                        (let [[field xtype] node
+                                              field-val (-> field keyword $)]
+                                          (cond
+                                            (nil? field-val) nil
+                                            (#{"NULL" "null" ""} field-val) nil
+                                            (= xtype :INT) (Integer/parseInt field-val)
+                                            (= xtype :DOUBLE) (Double/parseDouble field-val)
+                                            :else field-val))
+                                        node))
+                                    schema)) )))
+    ([x] x)))
 
+(comment
+  (deep-merge {} {:a 3} {:b 4} {:a {:d 5}})p
+  (sequence (x/reduce (collect-trgx [:a :b :c :d] {["a" :STRING] {:DATA {:b {["b" :STRING]  ["c" :STRING]}} :CHILDREN {}}})) [[1 2 3 4] [1 3 4 5] [11 22 33 44]])
+  )
 (defn -main []
   (let [{:keys [rdd fields]} (trgx-join (first (latest-tab-trgx)))]
     (as-> (keg/rdd rdd (map #(vector (nth % (.indexOf fields :user-id)) %))) $
       (keg/by-key $ (x/reduce (collect-trgx fields (latest-schema))))
-      (keg/rdd $ (map (fn [[_ [user-id user-trgx]]]
-                        (->> [user-id (derive-exprs (latest-exprs) user-trgx)]
+      (keg/rdd $ (map (fn [[user-id user-id-trgx]]
+                        (->> [user-id (derive-exprs (latest-exprs) (->  user-id-trgx first second))]
                              pr-str  vector into-array RowFactory/create
                              ))))
       (.createDataFrame (->> keg/*sc* .sc (new SparkSession)) $
@@ -243,5 +246,5 @@
     (.set "spark.master" "yarn"))
   (.close keg/*sc*)
   (def result *1)
-  
+
   )
