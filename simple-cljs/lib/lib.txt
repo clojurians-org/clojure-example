@@ -1,0 +1,15 @@
+boot-cljsjs-0.6.0.jar
+bootstrap-3.3.6-1.jar
+bootstrap-treeview-1.2.0-1.jar
+cljs-http-0.1.43.jar
+cljs.jar
+commons-codec-1.10.jar
+core.async-0.3.443.jar
+dommy-1.1.0.jar
+hiccups-0.3.0.jar
+jquery-2.2.4-0.jar
+jquery-ui-1.11.4-0.jar
+lib.txt
+noencore-0.3.3.jar
+transit-cljs-0.8.239.jar
+transit-js-0.8.846.jar
