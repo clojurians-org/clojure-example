@@ -1,0 +1,50 @@
+Retrying.
+
+--2016-09-26 10:18:28--  (try: 9)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:20:45--  (try:10)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:23:02--  (try:11)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:25:19--  (try:12)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:27:36--  (try:13)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:29:54--  (try:14)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:32:11--  (try:15)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:34:28--  (try:16)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:36:45--  (try:17)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:39:02--  (try:18)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:41:20--  (try:19)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Retrying.
+
+--2016-09-26 10:43:37--  (try:20)  http://mirror.hust.edu.cn/gnu/emacs/emacs-24.5.tar.gz
+Connecting to mirror.hust.edu.cn (mirror.hust.edu.cn)|202.114.18.160|:80... failed: Connection timed out.
+Giving up.
+
