@@ -1,0 +1,3 @@
+export LEIN_VERSION="2.7.1"
+wget -c https://github.com/technomancy/leiningen/releases/download/$LEIN_VERSION/leiningen-$LEIN_VERSION-standalone.zip
+mv leiningen-$LEIN_VERSION-standalone.zip leiningen-$LEIN_VERSION-standalone.jar
