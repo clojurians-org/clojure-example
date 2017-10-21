@@ -1,0 +1,56 @@
+goog.require('cljs.core');
+cljs.core.enable_console_print_BANG_() ;
+cljs.core.println(cljs.core.inc(1)) ;
+
+var e=React.createElement ;
+var rbForm = React.createFactory(ReactBootstrap.Form) ;
+var rbFormGroup = React.createFactory(ReactBootstrap.FormGroup) ;
+var rbInputGroup = React.createFactory(ReactBootstrap.InputGroup) ;
+var rbInputGroupAddon =  React.createFactory(ReactBootstrap.InputGroup.Addon) ;
+var rbFormControl =  React.createFactory(ReactBootstrap.FormControl) ;
+var rAutocomplete=React.createFactory(ReactAutocomplete) ;
+
+var formInstance = React.createClass({
+  // getInitialState: function() {return {};},
+  render: function() {return 
+    rbForm({inline: true}, [
+      rbFormGroup({}, [
+        rbInputGroup({}, [
+          rbInputGroupAddon({}, ["Period"]),
+          rbFormControl({componentClass: "select"}, [
+            e("option", {}, ["ByMonth"]),
+            e("option", {}, ["ByDay"]),
+            e("option", {}, ["Onetime"])
+          ])
+        ])
+      ]),
+      "  ",
+      rbForm({}, [
+        rbInputGroup({}, [
+          rbFormControl({componentClass: "select"},
+            cljs.core.mapv(
+              it => e("option", {}, it),
+              cljs.core.range(0,24)
+            )
+          ),
+          rbInputGroupAddon({}, ["Hour"])
+        ])
+      ]),
+      "  "/*,
+      rbFormGroup({}, [
+        rbInputGroup({}, [
+          rAutocomplete({
+            items: ["aaa", "bbb", "ccc"],
+            renderItem: (item, isHighlighted) => item,
+            value: "",
+            onChange: e => value = e.target.value,
+            onSelect: val => value = val
+          }),
+          rbInputGroupAddon({}, ["Minute"])
+        ])
+      ])
+      */
+    ]) 
+  }
+}) ;
+ReactDOM.render(e(formInstance), document.getElementById('app')) ;
