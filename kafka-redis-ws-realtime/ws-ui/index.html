@@ -1,0 +1,41 @@
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Hello World</title>
+  <script src="js/react.development.js"></script>
+  <script src="js/react-dom.development.js"></script>
+  <script src="js/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  class WSLabel extends React.Component {
+    constructor(props) {
+	  super(props) ;
+	  this.state = {
+	    text: ""
+	  } ;
+	}
+	componentDidMount(){
+	  var ws_con = new WebSocket("ws://localhost:1111") ;
+	  ws_con.onopen = () => {
+	    ws_con.send("") ;
+	  } ;
+	  ws_con.onmessage = evt => {
+		this.setState({
+          text: evt.data
+		}) ;	  
+      }
+    }
+	render() {
+      return <h1> REDIS[larluo-test]: {this.state.text} </h1> ;
+	}
+  } ;
+
+  ReactDOM.render(
+    <WSLabel/>,
+	document.getElementById("root")
+  ) ;
+</script>
+</body>
+</html>
