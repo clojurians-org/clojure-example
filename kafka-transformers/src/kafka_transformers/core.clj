@@ -1,0 +1,56 @@
+(ns kafka-transformers.core)
+
+(do
+  (require '[cheshire.core :refer [parse-string generate-string]])
+  (require '[clojure.data.codec.base64 :as b64])
+  (require '[clojure.string :as s])
+  (import '[org.apache.kafka.clients.consumer KafkaConsumer])
+  (import '[org.apache.kafka.clients.producer KafkaProducer ProducerRecord])
+  (import '[java.util.zip GZIPInputStream])
+  )
+
+(defn mk-prop [m] (reduce #(doto %1 (.put ((comp name key) %2) (val %2))) (new java.util.Properties) m)  )
+(defn parse-records [j-records] (map #(-> % .value (parse-string true) ) j-records))
+
+(def consumer-edn
+  {:bootstrap.servers "10.132.37.39:9092"
+   :group.id "larluo"
+   :key.deserializer "org.apache.kafka.common.serialization.StringDeserializer"
+   :value.deserializer "org.apache.kafka.common.serialization.StringDeserializer"}
+  )
+(def producer-edn
+  {:bootstrap.servers "10.132.37.39:9092"
+   :key.serializer "org.apache.kafka.common.serialization.StringSerializer"
+   :value.serializer "org.apache.kafka.common.serialization.StringSerializer"}
+  )
+
+(defn transform-field [field] 
+  (-> field .getBytes b64/decode clojure.java.io/input-stream GZIPInputStream. slurp 
+    (s/replace #"#;#" "\n")
+    (s/replace #"#,#9\[\]" "\n  ")
+    (s/replace #"9\[\]" "  "))
+  )
+
+(defn transform-message [idx message] (-> message (s/split #"#;#") (update-in [idx] transform-field) (->> (s/join "\n")) )  )
+(comment
+  (s/replace "8CBSD_RUN_STOR.CBSD_OUT_TRANSLATE#,#9[]Starting CBSD_RUN_STOR.CBSD_OUT_TRANSLATE..." #"(#;#|#,#9\[\])" "\n")
+  )
+(def kafka-producer (new KafkaProducer (mk-prop producer-edn)))
+(def kafka-consumer (new KafkaConsumer (mk-prop consumer-edn)))
+(def decrypt-idx 2)
+
+(defn -main []
+  (.subscribe kafka-consumer ["logi_cores_pts-COMPRESS"])
+  (transduce (comp
+              (mapcat parse-records)
+              (map #(update-in % [:message] (partial transform-message decrypt-idx)))
+              (map #(.send kafka-producer (new ProducerRecord "logi_cores_pts" (generate-string %) )))
+              (filter (constantly false)))
+             conj
+             (repeatedly #(.poll kafka-consumer Long/MAX_VALUE)))
+  )
+(comment
+  (.subscribe kafka-consumer ["logi_cores_pts-COMPRESS"])
+  (def data (.poll kafka-consumer Long/MAX_VALUE) )
+  (-> data parse-records first (#(update-in % [:message] (partial transform-message decrypt-idx)))) 
+  )

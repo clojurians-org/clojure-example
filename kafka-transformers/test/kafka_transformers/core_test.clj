@@ -1,6 +1,6 @@
-(ns kafka-transfer.core-test
+(ns kafka-transformers.core-test
   (:require [clojure.test :refer :all]
-            [kafka-transfer.core :refer :all]))
+            [kafka-transformers.core :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."
